@@ -473,7 +473,7 @@ export const AppProvider = ({ children }) => {
       socketRef.current.disconnect();
     }
 
-    const socket = io('http://localhost:5000', {
+    const socket = io(import.meta.env.DEV ? 'http://localhost:5000' : '/', {
       auth: { token }
     });
 
