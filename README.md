@@ -2,6 +2,8 @@
 
 GoalMate is a state-of-the-art, high-fidelity peer accountability application designed to help partners stay locked-in, sync priorities, and crush goals together. Featuring vibrant dark-mode aesthetics, premium glassmorphism, real-time Socket.io signaling, and WebRTC peer-to-peer calling, GoalMate gamifies personal growth to make daily collaboration engaging and highly visual.
 
+### 🌐 [Live Demo → goalmate-nk1d.onrender.com](https://goalmate-nk1d.onrender.com)
+
 ---
 
 ## 🚀 Key Features
