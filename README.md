@@ -57,6 +57,54 @@ GoalMate is a state-of-the-art, high-fidelity peer accountability application de
 
 ---
 
+## 📐 System Architecture
+
+GoalMate utilizes a decoupled client-server architecture built on top of high-performance real-time WebSocket events and Peer-to-Peer connection frameworks.
+
+```mermaid
+graph TD
+    subgraph ClientSpace ["Client Space (React Web App)"]
+        ClientA["Client A (React 19 / AppContext)"]
+        ClientB["Client B (React 19 / AppContext)"]
+    end
+
+    subgraph BackendServer ["Backend Server (Node.js / Express)"]
+        API["REST API (routes.js)"]
+        SocketServer["Socket.io Server (server.js)"]
+    end
+
+    subgraph DB["Database Layer"]
+        MongoDB[("MongoDB / Mongoose")]
+        FallbackDb[("SQLite / JSON Fallback")]
+    end
+
+    %% Client communication with Server
+    ClientA -->|"HTTP Requests (Axios)"| API
+    ClientB -->|"HTTP Requests (Axios)"| API
+    
+    ClientA <-->|"WebSocket Events (DM Chat, Reactions)"| SocketServer
+    ClientB <-->|"WebSocket Events (DM Chat, Reactions)"| SocketServer
+
+    %% WebRTC Connection Setup
+    ClientA <-->|"WebRTC Signaling (SDP / ICE)"| SocketServer
+    ClientB <-->|"WebRTC Signaling (SDP / ICE)"| SocketServer
+    ClientA <==>|"Direct P2P Audio/Video Link"| ClientB
+
+    %% Database interface
+    API <-->|"DatabaseManager"| MongoDB
+    API <-->|"DatabaseManager (Fallback)"| FallbackDb
+```
+
+### Core Architecture Components
+
+1. **Client (React Web App)**: Driven by React 19 and custom HSL-styled glassmorphic components. It relies on a centralized `AppContext` to handle state synchronization, WebSocket event listeners, and WebRTC media streams (camera/mic feeds).
+2. **REST API (Express)**: Exposes endpoints for standard CRUD actions like user profile creation, authenticated sessions (via JWT), retrieving streaks/leaderboard status, and managing career board entries.
+3. **Socket.io Signaling Server**: Serves as the real-time event hub. Beyond syncing DM chat messages, reaction emojis, read-receipt checkmarks, and cheer indicators, it brokers WebRTC peer handshakes by exchanging SDP offers, SDP answers, and ICE candidate events.
+4. **WebRTC Peer-to-Peer Channel**: Enables direct, encrypted peer-to-peer browser streams for calling, bypassing backend media processing and offering ultra-low latency audio/video feeds.
+5. **Database Abstraction Engine**: Abstracted behind a unified `DatabaseManager` in `db.js`. While MongoDB (Mongoose schemas) serves as the primary data store, it dynamically routes to local SQLite or local file fallbacks to guarantee uptime and offline portability during development.
+
+---
+
 ## 📂 Project Structure
 
 ```bash
