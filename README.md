@@ -202,26 +202,3 @@ GoalMate follows premium modern UI design guidelines:
 * **harmonious HSL Gradients**: Deep dark blues and navy backgrounds (`#080c16`, `#0d1423`) combined with cyan, violet, and orange accent glow effects.
 * **Glassmorphic Panels**: High backdrop blur (`backdrop-filter: blur(16px)`) mixed with semi-transparent white/grey borders (`rgba(255, 255, 255, 0.08)`).
 * **Feedback micro-animations**: Focus inputs expand smoothly, checkmark tags pulse upon state updates, and soundwaves animate during voice calls.
-
----
-
-## ☁️ Cloud Deployment (Render)
-
-GoalMate is ready for cloud deployment using the provided [render.yaml](file:///c:/Users/prudh/OneDrive/Desktop/Goalmate/render.yaml) blueprint configuration.
-
-### Quick Setup Steps
-
-1. **Host a MongoDB Database**:
-   - Create a free cluster on [MongoDB Atlas](https://www.mongodb.com/cloud/atlas).
-   - In the Atlas dashboard, navigate to **Database** -> **Connect** -> **Drivers**, and copy the Connection String URI. Replace the username and password in the connection string with your database user credentials.
-
-2. **Deploy on Render**:
-   - Sign in to [Render](https://render.com/).
-   - Click **New +** at the top right and select **Blueprint**.
-   - Connect your GitHub repository `GoalMate`.
-   - Render will read the `render.yaml` and configure the service automatically.
-   - Under the environment configuration prompt:
-     - Set `MONGODB_URI` to your copied MongoDB Atlas Connection String.
-     - (Optional) Set `JWT_SECRET` to a custom secure key string.
-   - Click **Approve** or **Deploy**. Render will install client/server dependencies, compile Vite assets, and start the app online.
-
