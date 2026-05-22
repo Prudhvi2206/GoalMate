@@ -15,9 +15,9 @@ const server = http.createServer(app);
 const JWT_SECRET = process.env.JWT_SECRET || 'goalmate-super-secret-key-12345!';
 const PORT = process.env.PORT || 5000;
 
-// Enable CORS with dynamic origin support (supports localhost dev ports and production domains)
+// Enable CORS
 app.use(cors({
-  origin: (origin, callback) => callback(null, true),
+  origin: 'http://localhost:5173', // Vite Frontend
   credentials: true
 }));
 
@@ -37,25 +37,19 @@ app.get('/health', (req, res) => {
   res.json({ status: 'OK', message: 'GoalMate backend is running smoothly.' });
 });
 
-// Serve compiled static assets in production
+// Serve static files from the React app in production
 app.use(express.static(path.join(__dirname, '../dist')));
 
-// Fallback to React index.html for SPA client-side routing
-app.get('*', (req, res, next) => {
-  if (req.url.startsWith('/api') || req.url.startsWith('/socket.io')) {
-    return next();
-  }
-  res.sendFile(path.join(__dirname, '../dist/index.html'), (err) => {
-    if (err) {
-      res.status(404).send('Frontend build folder (dist) not found. Please compile assets with "npm run build" first.');
-    }
-  });
+// The "catchall" handler: for any request that doesn't
+// match one of the API routes, send back React's index.html file.
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, '../dist/index.html'));
 });
 
 // Configure Socket.io Server
 const io = new Server(server, {
   cors: {
-    origin: (origin, callback) => callback(null, true),
+    origin: 'http://localhost:5173',
     methods: ['GET', 'POST'],
     credentials: true
   }

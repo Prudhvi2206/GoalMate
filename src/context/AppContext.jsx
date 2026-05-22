@@ -473,7 +473,8 @@ export const AppProvider = ({ children }) => {
       socketRef.current.disconnect();
     }
 
-    const socket = io(import.meta.env.DEV ? 'http://localhost:5000' : '/', {
+    const socketUrl = window.location.port === '5173' ? 'http://localhost:5000' : window.location.origin;
+    const socket = io(socketUrl, {
       auth: { token }
     });
 

@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: goalmate
+    env: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: node server/server.js
+    envVars:
+      - key: NODE_VERSION
+        value: 18.0.0
+      - key: PORT
+        value: 5000
+      - key: JWT_SECRET
+        value: goalmate-super-secret-key-12345!
+      - key: MONGODB_URI
+        sync: false
