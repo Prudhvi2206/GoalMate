@@ -197,6 +197,45 @@ npm run dev
 
 ---
 
+## 🌐 Production Deployment
+
+GoalMate is fully prepared for one-click monolithic deployment on modern cloud platforms like **Render**, **Railway**, or a virtual private server (VPS).
+
+### 1. Database Hosting (MongoDB Atlas)
+Since GoalMate relies on MongoDB, set up a database cluster:
+1. Register for a free account on [MongoDB Atlas](https://www.mongodb.com/cloud/atlas).
+2. Create a free shared cluster.
+3. In **Database Access**, create a user with a secure password.
+4. In **Network Access**, add `0.0.0.0/0` to allow connection requests from your cloud host.
+5. Retrieve your connection string from the **Connect** tab (choose "Drivers" -> Node.js), which looks like:
+   `mongodb+srv://<username>:<password>@cluster0.xxxx.mongodb.net/goalmate?retryWrites=true&w=majority`
+
+### 2. Standard Cloud Service Deployment (Render / Railway)
+GoalMate is configured with a root-level `postinstall` hook that automatically configures backend dependencies, and the Express server is wired to serve the compiled frontend React app statically.
+
+#### Option A: Deploying on Render (Web Service)
+1. Sign in to [Render](https://render.com/) and click **New** -> **Web Service**.
+2. Connect your GitHub repository `GoalMate`.
+3. Configure the following service settings:
+   - **Runtime**: `Node`
+   - **Build Command**: `npm run build` *(runs Vite build + triggers root `postinstall` to configure backend dependencies)*
+   - **Start Command**: `npm start` *(boots the Express backend and socket server)*
+4. Under **Advanced**, add the following environment variables:
+   - `NODE_ENV`: `production`
+   - `MONGODB_URI`: *Your MongoDB Atlas connection string*
+   - `JWT_SECRET`: *A secure random string (e.g., `my-custom-super-secret-key-xyz`)*
+5. Click **Create Web Service**. Render will build and deploy your app, providing a free `onrender.com` URL.
+
+#### Option B: Deploying on Railway
+1. Sign in to [Railway](https://railway.app/) and click **New Project** -> **Deploy from GitHub repo**.
+2. Select your `GoalMate` repository.
+3. In your project variables settings, click **Add Variables** and configure:
+   - `MONGODB_URI`: *Your MongoDB Atlas connection string*
+   - `JWT_SECRET`: *A secure random token*
+4. Railway will auto-detect the root `package.json` build and start scripts, compile the assets, and deploy the application.
+
+---
+
 ## 🎨 Design System & Aesthetics
 GoalMate follows premium modern UI design guidelines:
 * **harmonious HSL Gradients**: Deep dark blues and navy backgrounds (`#080c16`, `#0d1423`) combined with cyan, violet, and orange accent glow effects.
