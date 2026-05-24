@@ -755,7 +755,27 @@ const TrackerView = () => {
         @media (max-width: 768px) {
           .tracker-header {
             flex-direction: column;
-            align-items: flex-start;
+            align-items: stretch;
+            gap: 16px;
+            padding: 16px;
+          }
+
+          .tracker-title h1 {
+            font-size: 1.8rem;
+          }
+
+          .add-app-form {
+            padding: 16px;
+          }
+
+          .app-card-actions {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 12px;
+          }
+
+          .btn-delete {
+            justify-content: center;
           }
         }
       `}</style>

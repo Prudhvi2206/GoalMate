@@ -459,6 +459,38 @@ const GlobalSearch = ({ isOpen, onClose, onSelectTask }) => {
           color: var(--accent-primary);
           transform: translateX(2px);
         }
+
+        @media (max-width: 768px) {
+          .search-backdrop {
+            padding: 16px 12px;
+          }
+
+          .search-modal {
+            max-height: 95vh;
+          }
+
+          .search-header {
+            padding: 12px 14px;
+            gap: 10px;
+          }
+
+          .search-main-input {
+            font-size: 0.95rem;
+          }
+
+          .search-results-viewport {
+            padding: 16px;
+          }
+
+          .result-item-card {
+            padding: 10px 14px;
+            gap: 12px;
+          }
+
+          .result-tags {
+            flex-wrap: wrap;
+          }
+        }
       `}</style>
     </div>
   );

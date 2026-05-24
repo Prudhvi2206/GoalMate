@@ -674,6 +674,63 @@ const CallOverlay = () => {
           0%, 100% { opacity: 0.9; }
           50% { opacity: 0.7; }
         }
+
+        @media (max-width: 768px) {
+          .call-overlay-container {
+            padding: 12px;
+          }
+
+          .call-card {
+            padding: 20px 16px;
+            min-height: 460px;
+          }
+
+          .call-card.video-layout {
+            padding: 12px;
+            min-height: 90vh;
+            height: 100%;
+          }
+
+          .call-partner-name {
+            font-size: 1.6rem;
+          }
+
+          .call-avatar-wrapper {
+            width: 100px;
+            height: 100px;
+            margin: 16px 0;
+          }
+
+          .call-avatar-emoji {
+            font-size: 3.2rem;
+          }
+
+          .voice-call-visualizer {
+            height: 50px;
+            gap: 4px;
+          }
+
+          .visualizer-bar {
+            width: 4px;
+          }
+
+          .local-video-pip-premium {
+            width: 110px;
+            height: 80px;
+            top: 12px;
+            right: 12px;
+          }
+
+          .call-actions-bar-premium {
+            gap: 12px;
+            margin-top: 16px;
+          }
+
+          .call-action-btn-premium {
+            width: 46px;
+            height: 46px;
+          }
+        }
       `}</style>
     </div>
   );

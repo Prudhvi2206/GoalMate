@@ -1364,13 +1364,25 @@ const DashboardView = () => {
         @media (max-width: 768px) {
           .dashboard-header {
             flex-direction: column;
-            align-items: flex-start;
+            align-items: stretch;
+            gap: 16px;
+            padding: 16px;
+          }
+
+          .header-text-block h1 {
+            font-size: 1.7rem;
+          }
+
+          .progress-metric-widget {
+            width: 100%;
+            justify-content: flex-start;
           }
 
           .task-card {
             flex-direction: column;
             align-items: flex-start;
             gap: 16px;
+            padding: 16px;
           }
 
           .card-right-section {

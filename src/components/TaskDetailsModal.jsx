@@ -935,6 +935,82 @@ const TaskDetailsModal = ({ taskId, onClose }) => {
         .btn-complete:hover {
           background: linear-gradient(135deg, #059669 0%, #047857 100%);
         }
+
+        @media (max-width: 768px) {
+          .modal-backdrop {
+            padding: 12px;
+          }
+
+          .modal-row {
+            flex-direction: column;
+            gap: 16px;
+          }
+
+          .task-detail-meta-grid {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 10px;
+          }
+
+          .meta-item {
+            width: 100%;
+          }
+
+          .edit-actions {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 10px;
+          }
+
+          .edit-actions button {
+            width: 100%;
+            justify-content: center;
+          }
+        }
+
+        @media (max-width: 600px) {
+          .modal-backdrop {
+            padding: 0;
+          }
+
+          .modal-content {
+            max-height: 100vh;
+            height: 100vh;
+            border-radius: 0;
+            border: none;
+          }
+
+          .modal-body {
+            padding: 16px;
+          }
+
+          .modal-header, .modal-footer {
+            padding: 16px;
+          }
+
+          .modal-footer {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 12px;
+          }
+
+          .btn-danger-outline {
+            width: 100%;
+            justify-content: center;
+          }
+
+          .footer-right-actions {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 8px;
+            width: 100%;
+          }
+
+          .footer-right-actions button {
+            width: 100%;
+            justify-content: center;
+          }
+        }
       `}</style>
     </div>
   );

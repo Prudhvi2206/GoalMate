@@ -886,6 +886,21 @@ const FriendsView = () => {
         }
 
         @media (max-width: 768px) {
+          .social-header {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 16px;
+            padding: 16px;
+          }
+
+          .social-welcome h1 {
+            font-size: 1.8rem;
+          }
+
+          .leaderboard-card, .social-feed-card, .connection-manager-card {
+            padding: 16px;
+          }
+
           .leaderboard-item {
             flex-direction: column;
             align-items: flex-start;
@@ -895,6 +910,21 @@ const FriendsView = () => {
           .item-stats-actions {
             width: 100%;
             justify-content: space-between;
+          }
+
+          .item-rank-name {
+            width: 100%;
+          }
+
+          .form-group-row {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 8px;
+          }
+
+          .btn-add-friend {
+            width: 100%;
+            justify-content: center;
           }
         }
       `}</style>

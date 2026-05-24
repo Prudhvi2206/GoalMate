@@ -665,6 +665,28 @@ const UserProfileModal = () => {
           70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
           100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
         }
+
+        @media (max-width: 480px) {
+          .profile-modal-overlay {
+            padding: 12px;
+          }
+
+          .profile-modal-content {
+            padding: 16px;
+            border-radius: 16px;
+          }
+
+          .profile-avatar-option-buttons {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 8px;
+          }
+
+          .profile-upload-trigger-btn, .profile-clear-avatar-btn {
+            width: 100%;
+            justify-content: center;
+          }
+        }
       `}</style>
     </div>
   );

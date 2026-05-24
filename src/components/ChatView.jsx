@@ -1983,7 +1983,8 @@ const ChatView = () => {
           position: absolute;
           bottom: 84px;
           left: 24px;
-          width: 320px;
+          width: calc(100% - 48px);
+          max-width: 320px;
           max-height: 300px;
           border-radius: 16px;
           border: 1px solid rgba(255, 255, 255, 0.1);

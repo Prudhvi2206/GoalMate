@@ -374,6 +374,27 @@ const AuthView = () => {
           font-size: 0.75rem;
           font-weight: 600;
         }
+
+        @media (max-width: 480px) {
+          .auth-overlay {
+            align-items: flex-start;
+            overflow-y: auto;
+            padding: 24px 16px;
+          }
+
+          .auth-container {
+            padding: 24px 20px;
+            border-radius: 16px;
+          }
+
+          .auth-logo h1 {
+            font-size: 1.8rem;
+          }
+
+          .auth-logo {
+            margin-bottom: 20px;
+          }
+        }
       `}</style>
     </div>
   );

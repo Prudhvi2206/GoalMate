@@ -726,6 +726,48 @@ const JournalView = () => {
           line-height: 1.6;
           white-space: pre-line;
         }
+
+        @media (max-width: 768px) {
+          .journal-view-container {
+            padding: 16px;
+          }
+
+          .view-header {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 16px;
+          }
+
+          .header-info h1 {
+            font-size: 1.8rem;
+          }
+
+          .btn-add-entry {
+            width: 100%;
+            justify-content: center;
+          }
+
+          .journal-form-card, .journal-history-card {
+            padding: 16px;
+          }
+
+          .history-header {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 16px;
+          }
+
+          .search-bar-wrapper {
+            width: 100%;
+            min-width: 0;
+          }
+        }
+
+        @media (max-width: 600px) {
+          .mood-selector-row {
+            grid-template-columns: repeat(3, 1fr);
+          }
+        }
       `}</style>
     </div>
   );
