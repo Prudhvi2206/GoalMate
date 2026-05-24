@@ -26,6 +26,8 @@ import {
 const Sidebar = () => {
   const { user, activeTab, setActiveTab, theme, toggleTheme, logout, setViewingUser, pendingReceivedRequests, tasks } = useApp();
 
+  if (!user) return null;
+
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'social', label: 'Accountability Hub', icon: Users },

@@ -13,7 +13,8 @@ import AuthView from './components/AuthView';
 import GlobalSearch from './components/GlobalSearch';
 import TaskDetailsModal from './components/TaskDetailsModal';
 import UserProfileModal from './components/UserProfileModal';
-import CallOverlay from './components/CallOverlay';import { Sun, Moon } from 'lucide-react';
+import CallOverlay from './components/CallOverlay';
+import { Sun, Moon } from 'lucide-react';
 
 const MainLayout = () => {
   const { activeTab, auth, viewingUser, theme, toggleTheme } = useApp();
