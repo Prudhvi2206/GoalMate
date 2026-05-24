@@ -492,7 +492,19 @@ class DatabaseManager {
     if (!expiryTime) {
       const targetDate = taskData.date || new Date().toISOString().split('T')[0];
       const targetEndTime = taskData.endTime || '23:59';
-      expiryTime = new Date(`${targetDate}T${targetEndTime}:00+05:30`).toISOString();
+      const targetStartTime = taskData.startTime || '00:00';
+      
+      let expiryDateObj = new Date(`${targetDate}T${targetEndTime}:00+05:30`);
+      
+      // Support cross-midnight tasks: if endTime is smaller than startTime, task expires on the next day
+      if (targetEndTime < targetStartTime) {
+        const dateObj = new Date(targetDate);
+        dateObj.setDate(dateObj.getDate() + 1);
+        const nextDayStr = dateObj.toISOString().split('T')[0];
+        expiryDateObj = new Date(`${nextDayStr}T${targetEndTime}:00+05:30`);
+      }
+      
+      expiryTime = expiryDateObj.toISOString();
     }
 
     const task = new Task({
@@ -545,7 +557,19 @@ class DatabaseManager {
     } else if (taskData.date !== undefined || taskData.endTime !== undefined) {
       const dateVal = taskData.date !== undefined ? taskData.date : task.date;
       const endTimeVal = taskData.endTime !== undefined ? taskData.endTime : task.endTime;
-      task.expiryTime = new Date(`${dateVal}T${endTimeVal || '23:59'}:00+05:30`).toISOString();
+      const startTimeVal = taskData.startTime !== undefined ? taskData.startTime : task.startTime;
+      
+      let expiryDateObj = new Date(`${dateVal}T${endTimeVal || '23:59'}:00+05:30`);
+      
+      // Support cross-midnight tasks: if endTime is smaller than startTime, task expires on the next day
+      if (endTimeVal && startTimeVal && endTimeVal < startTimeVal) {
+        const dateObj = new Date(dateVal);
+        dateObj.setDate(dateObj.getDate() + 1);
+        const nextDayStr = dateObj.toISOString().split('T')[0];
+        expiryDateObj = new Date(`${nextDayStr}T${endTimeVal}:00+05:30`);
+      }
+      
+      task.expiryTime = expiryDateObj.toISOString();
     }
 
     if (taskData.completed !== undefined) {
