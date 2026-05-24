@@ -886,6 +886,13 @@ const FriendsView = () => {
         }
 
         @media (max-width: 768px) {
+          .friends-view-container {
+            max-width: 100%;
+            overflow-x: hidden;
+            width: 100%;
+            box-sizing: border-box;
+          }
+
           .social-header {
             flex-direction: column;
             align-items: stretch;

@@ -729,6 +729,10 @@ const JournalView = () => {
 
         @media (max-width: 768px) {
           .journal-view-container {
+            max-width: 100%;
+            overflow-x: hidden;
+            width: 100%;
+            box-sizing: border-box;
             padding: 16px;
           }
 

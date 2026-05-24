@@ -753,6 +753,13 @@ const TrackerView = () => {
         }
 
         @media (max-width: 768px) {
+          .tracker-view-container {
+            max-width: 100%;
+            overflow-x: hidden;
+            width: 100%;
+            box-sizing: border-box;
+          }
+
           .tracker-header {
             flex-direction: column;
             align-items: stretch;

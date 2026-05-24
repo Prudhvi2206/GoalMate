@@ -1362,6 +1362,13 @@ const DashboardView = () => {
 
         /* Responsive */
         @media (max-width: 768px) {
+          .dashboard-view-container {
+            max-width: 100%;
+            overflow-x: hidden;
+            width: 100%;
+            box-sizing: border-box;
+          }
+
           .dashboard-header {
             flex-direction: column;
             align-items: stretch;
@@ -1376,6 +1383,39 @@ const DashboardView = () => {
           .progress-metric-widget {
             width: 100%;
             justify-content: flex-start;
+          }
+
+          .sub-tab-bar {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 8px;
+            padding: 8px;
+          }
+
+          .tabs-left {
+            display: flex;
+            width: 100%;
+            gap: 4px;
+          }
+
+          .tabs-left .sub-tab {
+            flex: 1;
+            text-align: center;
+            padding: 8px 4px;
+            font-size: 0.85rem;
+          }
+
+          .btn-create {
+            width: 100%;
+            justify-content: center;
+            padding: 8px;
+            font-size: 0.85rem;
+          }
+
+          .category-filter-chips {
+            max-width: 100%;
+            width: 100%;
+            box-sizing: border-box;
           }
 
           .task-card {

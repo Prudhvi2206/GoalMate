@@ -337,6 +337,13 @@ const HistoryView = () => {
         }
 
         @media (max-width: 768px) {
+          .history-view-container {
+            max-width: 100%;
+            overflow-x: hidden;
+            width: 100%;
+            box-sizing: border-box;
+          }
+
           .filters-selectors-row {
             grid-template-columns: 1fr;
           }
