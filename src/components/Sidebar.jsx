@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 
 const Sidebar = () => {
-  const { user, activeTab, setActiveTab, theme, toggleTheme, logout, setViewingUser, pendingReceivedRequests, tasks } = useApp();
+  const { user, activeTab, setActiveTab, theme, toggleTheme, logout, viewingUser, setViewingUser, pendingReceivedRequests, tasks } = useApp();
 
   if (!user) return null;
 
@@ -163,7 +163,7 @@ const Sidebar = () => {
         })}
         <button 
           onClick={() => setViewingUser(user)} 
-          className={`mobile-nav-btn profile-btn ${viewingUser && viewingUser.id === user.id ? 'active' : ''}`}
+          className={`mobile-nav-btn profile-btn ${viewingUser?.id === user?.id ? 'active' : ''}`}
           title="My Profile"
         >
           <div className="mobile-avatar-ring">
