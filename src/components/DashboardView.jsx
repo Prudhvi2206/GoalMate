@@ -837,6 +837,13 @@ const DashboardView = () => {
           grid-template-columns: 1fr;
           gap: 24px;
           align-items: start;
+          min-width: 0;
+        }
+
+        .tasks-main-column {
+          min-width: 0;
+          width: 100%;
+          max-width: 100%;
         }
 
         @media (min-width: 1024px) {
@@ -1093,6 +1100,14 @@ const DashboardView = () => {
           overflow-x: auto;
           padding-bottom: 8px;
           margin-bottom: 16px;
+          width: 100%;
+          max-width: 100%;
+          min-width: 0;
+          box-sizing: border-box;
+          -webkit-overflow-scrolling: touch;
+        }
+        .category-filter-chips::-webkit-scrollbar {
+          display: none;
         }
 
         .chip {
