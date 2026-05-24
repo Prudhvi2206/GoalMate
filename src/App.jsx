@@ -13,10 +13,10 @@ import AuthView from './components/AuthView';
 import GlobalSearch from './components/GlobalSearch';
 import TaskDetailsModal from './components/TaskDetailsModal';
 import UserProfileModal from './components/UserProfileModal';
-import CallOverlay from './components/CallOverlay';
+import CallOverlay from './components/CallOverlay';import { Sun, Moon } from 'lucide-react';
 
 const MainLayout = () => {
-  const { activeTab, auth, viewingUser } = useApp();
+  const { activeTab, auth, viewingUser, theme, toggleTheme } = useApp();
   const [searchOpen, setSearchOpen] = useState(false);
   const [selectedTaskId, setSelectedTaskId] = useState(null);
 
@@ -60,6 +60,15 @@ const MainLayout = () => {
     <div className="app-container">
       {/* Dynamic Profile Navigation Sidebar (Desktop Sidebar + Mobile Bottom Dock) */}
       <Sidebar />
+
+      {/* Mobile Floating Theme Toggle */}
+      <button 
+        onClick={toggleTheme} 
+        className="mobile-floating-theme-toggle glass-panel"
+        title="Toggle Theme"
+      >
+        {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
+      </button>
 
       {/* Floating System and Social Notifications portal */}
       <Toast />

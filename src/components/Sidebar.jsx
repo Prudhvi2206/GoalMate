@@ -151,17 +151,26 @@ const Sidebar = () => {
               className={`mobile-nav-btn ${isActive ? 'active' : ''}`}
             >
               <div style={{ position: 'relative', display: 'inline-flex' }}>
-                <Icon size={22} />
+                <Icon size={20} />
                 {badgeCount > 0 && (
                   <span className="mobile-badge">{badgeCount}</span>
                 )}
               </div>
-              <span className="mobile-nav-label">{item.label.split(' ')[0]}</span>
             </button>
           );
         })}
-        <button onClick={toggleTheme} className="mobile-nav-btn theme-btn">
-          {theme === 'dark' ? <Sun size={22} /> : <Moon size={22} />}
+        <button 
+          onClick={() => setViewingUser(user)} 
+          className={`mobile-nav-btn profile-btn ${viewingUser && viewingUser.id === user.id ? 'active' : ''}`}
+          title="My Profile"
+        >
+          <div className="mobile-avatar-ring">
+            {user.avatar && typeof user.avatar === 'string' && (user.avatar.startsWith('http') || user.avatar.startsWith('data:image/')) ? (
+              <img src={user.avatar} alt={user.username} className="mobile-user-avatar-img" />
+            ) : (
+              <span className="mobile-user-avatar-emoji">{user.avatar || '🏆'}</span>
+            )}
+          </div>
         </button>
       </nav>
 
@@ -405,37 +414,77 @@ const Sidebar = () => {
           display: none;
           position: fixed;
           bottom: 12px;
-          left: 12px;
-          right: 12px;
-          height: 64px;
+          left: 50%;
+          transform: translateX(-50%);
+          width: calc(100% - 24px);
+          max-width: 480px;
+          height: 60px;
           z-index: 999;
           justify-content: space-around;
           align-items: center;
-          padding: 0 10px;
-          border-radius: 20px;
+          padding: 0 8px;
+          border-radius: 18px;
+          box-shadow: 0 8px 32px 0 var(--glass-shadow), inset 0 0 0 1px var(--glass-border);
+          box-sizing: border-box;
         }
 
         .mobile-nav-btn {
           display: flex;
-          flex-direction: column;
           align-items: center;
           justify-content: center;
           background: transparent;
           border: none;
-          color: var(--text-muted);
+          color: var(--text-secondary);
           cursor: pointer;
           transition: var(--transition-smooth);
+          width: 38px;
+          height: 38px;
+          border-radius: 10px;
+          padding: 0;
+          box-sizing: border-box;
         }
 
         .mobile-nav-btn.active {
           color: var(--accent-primary);
-          transform: translateY(-4px);
+          background: rgba(var(--accent-primary-rgb), 0.15);
+          transform: translateY(-2px);
+          box-shadow: inset 0 0 4px rgba(var(--accent-primary-rgb), 0.1);
         }
 
         .mobile-nav-label {
-          font-size: 0.65rem;
-          font-weight: 600;
-          margin-top: 2px;
+          display: none;
+        }
+
+        .mobile-avatar-ring {
+          width: 24px;
+          height: 24px;
+          border-radius: 50%;
+          background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          overflow: hidden;
+          transition: var(--transition-smooth);
+          box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+          border: 1px solid var(--glass-border);
+        }
+
+        .mobile-user-avatar-img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          border-radius: 50%;
+        }
+
+        .mobile-user-avatar-emoji {
+          font-size: 13px;
+          line-height: 1;
+        }
+
+        .mobile-nav-btn.active .mobile-avatar-ring {
+          border-color: var(--accent-primary);
+          box-shadow: 0 0 8px rgba(var(--accent-primary-rgb), 0.4);
+          transform: scale(1.05);
         }
 
         /* Responsive Breakpoints */

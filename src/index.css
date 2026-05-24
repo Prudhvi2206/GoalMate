@@ -61,7 +61,7 @@ body.light {
   padding: 0;
 }
 
-body {
+html, body {
   background-color: var(--bg-primary);
   color: var(--text-primary);
   font-family: var(--font-body);
@@ -70,6 +70,9 @@ body {
   overflow-x: hidden;
   transition: background-color 0.4s, color 0.4s;
   min-height: 100vh;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 h1, h2, h3, h4, h5, h6 {
@@ -103,10 +106,50 @@ button, input, select, textarea {
 }
 
 /* Layout Utilities */
+#root, .app-container {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
 .app-container {
   display: flex;
   min-height: 100vh;
   position: relative;
+}
+
+/* Mobile Floating Theme Toggle styling */
+.mobile-floating-theme-toggle {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .mobile-floating-theme-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: fixed;
+    top: 12px;
+    right: 12px;
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    z-index: 1001; /* Above all active views, below overlay modals */
+    color: var(--text-primary);
+    background: var(--glass-bg);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+    cursor: pointer;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.25);
+    transition: var(--transition-smooth);
+    padding: 0;
+  }
+
+  .mobile-floating-theme-toggle:hover {
+    transform: scale(1.05);
+    border-color: var(--accent-primary);
+  }
 }
 
 .main-content {
