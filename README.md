@@ -1,8 +1,6 @@
-# 🎯 GoalMate — Dynamic Peer Accountability Platform
+# 🎯 GoalMate 🚀
 
-GoalMate is a state-of-the-art, high-fidelity peer accountability application designed to help partners stay locked-in, sync priorities, and crush goals together. Featuring vibrant dark-mode aesthetics, premium glassmorphism, real-time Socket.io signaling, and WebRTC peer-to-peer calling, GoalMate gamifies personal growth to make daily collaboration engaging and highly visual.
-
-### 🌐 [Live Demo → goalmate-nk1d.onrender.com](https://goalmate-nk1d.onrender.com)
+> A state-of-the-art, high-fidelity peer accountability application designed to help partners stay locked-in, sync priorities, and crush goals together.
 
 [![React](https://img.shields.io/badge/REACT-1e2330?style=for-the-badge&logo=react&logoColor=20c0e0)](https://react.dev/)
 [![Vite](https://img.shields.io/badge/VITE-646cff?style=for-the-badge&logo=vite&logoColor=white)](https://vite.dev/)
@@ -14,6 +12,14 @@ GoalMate is a state-of-the-art, high-fidelity peer accountability application de
 [![WebRTC](https://img.shields.io/badge/WEBRTC-333333?style=for-the-badge&logo=webrtc&logoColor=white)](https://webrtc.org/)
 [![JWT](https://img.shields.io/badge/JWT-000000?style=for-the-badge&logo=jsonwebtokens&logoColor=white)](https://jwt.io/)
 [![Render](https://img.shields.io/badge/RENDER-46e3b7?style=for-the-badge&logo=render&logoColor=white)](https://render.com/)
+
+GoalMate is a premium web application featuring vibrant dark-mode aesthetics, premium glassmorphism, real-time Socket.io signaling, and WebRTC peer-to-peer calling. It gamifies personal growth to make daily collaboration engaging and highly visual.
+
+---
+
+### 🌐 Live Production Deployment
+
+* **App URL**: [https://goalmate-nk1d.onrender.com](https://goalmate-nk1d.onrender.com)
 
 ---
 
