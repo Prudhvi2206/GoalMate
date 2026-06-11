@@ -14,10 +14,11 @@ const server = http.createServer(app);
 
 const JWT_SECRET = process.env.JWT_SECRET || 'goalmate-super-secret-key-12345!';
 const PORT = process.env.PORT || 5000;
+const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5173';
 
 // Enable CORS
 app.use(cors({
-  origin: 'http://localhost:5173', // Vite Frontend
+  origin: CLIENT_URL,
   credentials: true
 }));
 
@@ -49,7 +50,7 @@ app.get('*', (req, res) => {
 // Configure Socket.io Server
 const io = new Server(server, {
   cors: {
-    origin: 'http://localhost:5173',
+    origin: CLIENT_URL,
     methods: ['GET', 'POST'],
     credentials: true
   }

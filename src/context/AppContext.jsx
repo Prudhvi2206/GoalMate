@@ -109,14 +109,14 @@ export const AppProvider = ({ children }) => {
     }
   };
 
-  const addToast = (message, type = 'success') => {
+  function addToast(message, type = 'success') {
     const id = Date.now() + Math.random().toString(36).substr(2, 5);
     setToasts(prev => [...prev, { id, message, type }]);
     
     setTimeout(() => {
       setToasts(prev => prev.filter(t => t.id !== id));
     }, 4000);
-  };
+  }
 
   const removeToast = (id) => {
     setToasts(prev => prev.filter(t => t.id !== id));
@@ -130,7 +130,7 @@ export const AppProvider = ({ children }) => {
     }
   }, []);
 
-  const init = async (token) => {
+  async function init(token) {
     try {
       localStorage.setItem('goalmate_token', token);
       const profile = await api.auth.getMe();
@@ -175,7 +175,7 @@ export const AppProvider = ({ children }) => {
         }, 5000);
       }
     }
-  };
+  }
 
   const processFriends = (list, currentUserId) => {
     // Accepted
@@ -473,7 +473,9 @@ export const AppProvider = ({ children }) => {
       socketRef.current.disconnect();
     }
 
-    const socketUrl = window.location.port === '5173' ? 'http://localhost:5000' : window.location.origin;
+    const socketUrl = import.meta.env.DEV
+      ? (import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000')
+      : window.location.origin;
     const socket = io(socketUrl, {
       auth: { token }
     });

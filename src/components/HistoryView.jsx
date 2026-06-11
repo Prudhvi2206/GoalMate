@@ -34,7 +34,7 @@ const HistoryView = () => {
     const matchesPriority = selectedPriority === 'All' || task.priority === selectedPriority;
     
     // Status match
-    let matchesStatus = true;
+    let matchesStatus;
     if (selectedStatus === 'completed') matchesStatus = task.status === 'completed';
     else if (selectedStatus === 'expired') matchesStatus = task.status === 'expired';
     else matchesStatus = task.status === 'completed' || task.status === 'expired'; // historical outcomes

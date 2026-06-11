@@ -4,6 +4,17 @@ GoalMate is a state-of-the-art, high-fidelity peer accountability application de
 
 ### 🌐 [Live Demo → goalmate-nk1d.onrender.com](https://goalmate-nk1d.onrender.com)
 
+[![React](https://img.shields.io/badge/REACT-1e2330?style=for-the-badge&logo=react&logoColor=20c0e0)](https://react.dev/)
+[![Vite](https://img.shields.io/badge/VITE-646cff?style=for-the-badge&logo=vite&logoColor=white)](https://vite.dev/)
+[![Node.js](https://img.shields.io/badge/NODE.JS-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)](https://nodejs.org/)
+[![Express](https://img.shields.io/badge/EXPRESS-000000?style=for-the-badge&logo=express&logoColor=white)](https://expressjs.com/)
+[![MongoDB](https://img.shields.io/badge/MONGODB-47a248?style=for-the-badge&logo=mongodb&logoColor=white)](https://www.mongodb.com/)
+[![SQLite](https://img.shields.io/badge/SQLITE-07405e?style=for-the-badge&logo=sqlite&logoColor=white)](https://www.sqlite.org/)
+[![Socket.io](https://img.shields.io/badge/SOCKET.IO-010101?style=for-the-badge&logo=socketdotio&logoColor=white)](https://socket.io/)
+[![WebRTC](https://img.shields.io/badge/WEBRTC-333333?style=for-the-badge&logo=webrtc&logoColor=white)](https://webrtc.org/)
+[![JWT](https://img.shields.io/badge/JWT-000000?style=for-the-badge&logo=jsonwebtokens&logoColor=white)](https://jwt.io/)
+[![Render](https://img.shields.io/badge/RENDER-46e3b7?style=for-the-badge&logo=render&logoColor=white)](https://render.com/)
+
 ---
 
 ## 🚀 Key Features
