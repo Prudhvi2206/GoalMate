@@ -1,7 +1,9 @@
 // GoalMate Notification Service
 // Manages Service Worker registration and native push notification delivery
 
-import { API_BASE_URL } from './api';
+const API_BASE_URL = import.meta.env.DEV
+  ? (import.meta.env.VITE_API_URL || `http://${window.location.hostname}:5000/api`)
+  : '/api';
 
 let swRegistration = null;
 
