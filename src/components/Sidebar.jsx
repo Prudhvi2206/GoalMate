@@ -20,11 +20,12 @@ import {
   Activity,
   User,
   Mail,
-  Shield
+  Shield,
+  Bell
 } from 'lucide-react';
 
 const Sidebar = () => {
-  const { user, activeTab, setActiveTab, theme, toggleTheme, logout, viewingUser, setViewingUser, pendingReceivedRequests, tasks } = useApp();
+  const { user, activeTab, setActiveTab, theme, toggleTheme, logout, viewingUser, setViewingUser, pendingReceivedRequests, tasks, unreadNotificationCount, notificationCenterOpen, setNotificationCenterOpen } = useApp();
 
   if (!user) return null;
 
@@ -50,6 +51,17 @@ const Sidebar = () => {
             <Sparkles className="logo-icon" size={24} />
             <h2>Goal<span className="gradient-text">Mate</span></h2>
           </div>
+          <button 
+            id="notification-bell-btn"
+            className={`sidebar-bell-btn ${unreadNotificationCount > 0 ? 'has-unread' : ''}`}
+            onClick={() => setNotificationCenterOpen(!notificationCenterOpen)}
+            title="Notifications"
+          >
+            <Bell size={18} />
+            {unreadNotificationCount > 0 && (
+              <span className="sidebar-bell-badge">{unreadNotificationCount > 99 ? '99+' : unreadNotificationCount}</span>
+            )}
+          </button>
         </div>
 
         {/* User Card */}
@@ -196,6 +208,9 @@ const Sidebar = () => {
 
         .sidebar-header {
           margin-bottom: 24px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
         }
 
         .logo-area {
@@ -409,6 +424,57 @@ const Sidebar = () => {
         .theme-toggle-btn {
           width: 100%;
           justify-content: center;
+        }
+
+        /* Notification Bell */
+        .sidebar-bell-btn {
+          position: relative;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: transparent;
+          border: 1px solid transparent;
+          border-radius: 10px;
+          color: var(--text-secondary);
+          cursor: pointer;
+          width: 36px;
+          height: 36px;
+          padding: 0;
+          transition: var(--transition-smooth);
+        }
+
+        .sidebar-bell-btn:hover {
+          background: rgba(255, 255, 255, 0.05);
+          color: var(--text-primary);
+          border-color: var(--glass-border);
+        }
+
+        .sidebar-bell-btn.has-unread {
+          color: var(--accent-primary);
+        }
+
+        .sidebar-bell-badge {
+          position: absolute;
+          top: -2px;
+          right: -2px;
+          background: linear-gradient(135deg, #ef4444, #f97316);
+          color: white;
+          font-size: 0.58rem;
+          font-weight: 800;
+          min-width: 16px;
+          height: 16px;
+          padding: 0 4px;
+          border-radius: 99px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border: 2px solid var(--bg-secondary);
+          animation: bellBadgePulse 2s ease-in-out infinite;
+        }
+
+        @keyframes bellBadgePulse {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.15); }
         }
 
         /* Mobile Nav Dock Styles */

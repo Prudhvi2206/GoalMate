@@ -376,6 +376,26 @@ router.post('/tasks', authenticateToken, async (req, res) => {
       assignedTo: 'You'
     });
 
+    // Send notification to friends about new task (only if they are accountability partners)
+    const sendNotification = req.app.get('sendNotification');
+    if (sendNotification) {
+      try {
+        const friends = await db.getFriends(req.user.id);
+        const activeFriends = friends.filter(f => f.status === 'accepted');
+        for (const friend of activeFriends) {
+          await sendNotification(friend.friendId, {
+            type: 'task_created',
+            category: 'task',
+            title: 'New Task Created 🎯',
+            body: `${req.user.username} created a new task: "${title}"`,
+            data: { taskId: task.id, senderId: req.user.id, senderUsername: req.user.username }
+          });
+        }
+      } catch (notifErr) {
+        console.error('Task create notification error:', notifErr);
+      }
+    }
+
     res.status(201).json(task);
   } catch (err) {
     console.error('Create task error:', err);
@@ -447,6 +467,18 @@ router.post('/tasks/assign', authenticateToken, async (req, res) => {
       });
     }
 
+    // Persist task_assigned notification
+    const sendNotification = req.app.get('sendNotification');
+    if (sendNotification) {
+      await sendNotification(friendId, {
+        type: 'task_assigned',
+        category: 'task',
+        title: 'Task Assigned to You 🎯',
+        body: `${req.user.username} assigned you a task: "${title}"`,
+        data: { taskId: assigneeTask.id, senderId: req.user.id, senderUsername: req.user.username }
+      });
+    }
+
     res.status(201).json({
       message: assignBoth ? 'Task successfully shared with partner.' : 'Task successfully assigned to partner.',
       task: assignBoth ? creatorTask : assigneeTask
@@ -488,6 +520,18 @@ router.post('/tasks/:id/accept', authenticateToken, async (req, res) => {
       });
     }
 
+    // Persist task_accepted notification
+    const sendNotification = req.app.get('sendNotification');
+    if (sendNotification && creator) {
+      await sendNotification(creator.id, {
+        type: 'task_status',
+        category: 'task',
+        title: 'Task Accepted ✅',
+        body: `${req.user.username} accepted your task: "${existing.title}"`,
+        data: { taskId: id, senderId: req.user.id, senderUsername: req.user.username }
+      });
+    }
+
     res.json({
       message: 'Task accepted successfully.',
       task: updated,
@@ -526,6 +570,18 @@ router.post('/tasks/:id/reject', authenticateToken, async (req, res) => {
         taskId: id,
         taskTitle: existing.title,
         assigneeName: req.user.username
+      });
+    }
+
+    // Persist task_rejected notification
+    const sendNotification = req.app.get('sendNotification');
+    if (sendNotification && creator) {
+      await sendNotification(creator.id, {
+        type: 'task_status',
+        category: 'task',
+        title: 'Task Rejected ❌',
+        body: `${req.user.username} rejected your task: "${existing.title}"`,
+        data: { taskId: id, senderId: req.user.id, senderUsername: req.user.username }
       });
     }
 
@@ -615,6 +671,26 @@ router.put('/tasks/:id', authenticateToken, async (req, res) => {
         content: `completed their ${updated.priority} task: "${updated.title}"! (+${xpAward} XP) 🔥`
       });
 
+      // Notify friends about task completion
+      const sendNotification = req.app.get('sendNotification');
+      if (sendNotification) {
+        try {
+          const friends = await db.getFriends(req.user.id);
+          const activeFriends = friends.filter(f => f.status === 'accepted');
+          for (const friend of activeFriends) {
+            await sendNotification(friend.friendId, {
+              type: 'task_completed',
+              category: 'task',
+              title: 'Task Completed 🎉',
+              body: `${req.user.username} completed: "${updated.title}" (+${xpAward} XP)`,
+              data: { taskId: id, senderId: req.user.id, senderUsername: req.user.username }
+            });
+          }
+        } catch (notifErr) {
+          console.error('Task completion notification error:', notifErr);
+        }
+      }
+
       return res.json({
         task: updated,
         xpAward,
@@ -622,6 +698,43 @@ router.put('/tasks/:id', authenticateToken, async (req, res) => {
         xp: xpResult ? xpResult.xp : 0,
         level: xpResult ? xpResult.level : 1
       });
+    }
+
+    // Notify partner of shared task updates (status changes, due date changes, etc.)
+    if (partnerTask) {
+      const sendNotification = req.app.get('sendNotification');
+      if (sendNotification) {
+        // Check what changed
+        const statusChanged = taskData.completed !== undefined || taskData.acceptanceStatus !== undefined;
+        const dueDateChanged = taskData.date !== undefined && taskData.date !== existing.date;
+        const contentUpdated = taskData.title !== undefined || taskData.description !== undefined || taskData.checklist !== undefined || taskData.notes !== undefined;
+
+        if (dueDateChanged) {
+          await sendNotification(partnerTask.userId, {
+            type: 'task_due_date',
+            category: 'task',
+            title: 'Due Date Changed 📅',
+            body: `${req.user.username} changed the due date for: "${updated.title}"`,
+            data: { taskId: partnerTask.id, senderId: req.user.id, senderUsername: req.user.username }
+          });
+        } else if (statusChanged) {
+          await sendNotification(partnerTask.userId, {
+            type: 'task_status',
+            category: 'task',
+            title: 'Task Status Updated 📊',
+            body: `${req.user.username} updated status for: "${updated.title}"`,
+            data: { taskId: partnerTask.id, senderId: req.user.id, senderUsername: req.user.username }
+          });
+        } else if (contentUpdated) {
+          await sendNotification(partnerTask.userId, {
+            type: 'task_updated',
+            category: 'task',
+            title: 'Task Updated ✏️',
+            body: `${req.user.username} updated shared task: "${updated.title}"`,
+            data: { taskId: partnerTask.id, senderId: req.user.id, senderUsername: req.user.username }
+          });
+        }
+      }
     }
 
     res.json({ task: updated });
@@ -671,6 +784,17 @@ router.delete('/tasks/:id', authenticateToken, async (req, res) => {
         if (io) {
           io.to(`user_${partnerTask.userId}`).emit('task_deleted', {
             taskId: partnerTask.id
+          });
+        }
+        // Persist task_deleted notification
+        const sendNotification = req.app.get('sendNotification');
+        if (sendNotification) {
+          await sendNotification(partnerTask.userId, {
+            type: 'task_deleted',
+            category: 'task',
+            title: 'Shared Task Deleted 🗑️',
+            body: `${req.user.username} deleted the shared task: "${existing.title}"`,
+            data: { senderId: req.user.id, senderUsername: req.user.username }
           });
         }
       }
@@ -901,6 +1025,139 @@ router.get('/feed', authenticateToken, async (req, res) => {
   } catch (err) {
     console.error('Get social feed error:', err);
     res.status(500).json({ error: 'Failed to retrieve social consistency feed.' });
+  }
+});
+
+// --- NOTIFICATION ROUTES ---
+
+// Get notifications
+router.get('/notifications', authenticateToken, async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 50;
+    const notifications = await db.getNotifications(req.user.id, limit);
+    res.json(notifications);
+  } catch (err) {
+    console.error('Get notifications error:', err);
+    res.status(500).json({ error: 'Failed to retrieve notifications.' });
+  }
+});
+
+// Get unread notification count
+router.get('/notifications/unread-count', authenticateToken, async (req, res) => {
+  try {
+    const count = await db.getUnreadNotificationCount(req.user.id);
+    res.json({ count });
+  } catch (err) {
+    console.error('Get unread count error:', err);
+    res.status(500).json({ error: 'Failed to get unread count.' });
+  }
+});
+
+// Mark single notification as read
+router.post('/notifications/read/:id', authenticateToken, async (req, res) => {
+  try {
+    const notif = await db.markNotificationRead(req.params.id);
+    if (!notif) {
+      return res.status(404).json({ error: 'Notification not found.' });
+    }
+    res.json(notif);
+  } catch (err) {
+    console.error('Mark notification read error:', err);
+    res.status(500).json({ error: 'Failed to mark notification as read.' });
+  }
+});
+
+// Mark all notifications as read
+router.post('/notifications/read-all', authenticateToken, async (req, res) => {
+  try {
+    const count = await db.markAllNotificationsRead(req.user.id);
+    res.json({ markedCount: count });
+  } catch (err) {
+    console.error('Mark all notifications read error:', err);
+    res.status(500).json({ error: 'Failed to mark all notifications as read.' });
+  }
+});
+
+// Get notification preferences
+router.get('/notifications/prefs', authenticateToken, async (req, res) => {
+  try {
+    const prefs = await db.getNotificationPrefs(req.user.id);
+    res.json(prefs);
+  } catch (err) {
+    console.error('Get notification prefs error:', err);
+    res.status(500).json({ error: 'Failed to retrieve notification preferences.' });
+  }
+});
+
+// Update notification preferences
+router.put('/notifications/prefs', authenticateToken, async (req, res) => {
+  try {
+    const { taskNotifications, chatNotifications } = req.body;
+    const prefs = await db.updateNotificationPrefs(req.user.id, {
+      taskNotifications,
+      chatNotifications
+    });
+    res.json(prefs);
+  } catch (err) {
+    console.error('Update notification prefs error:', err);
+    res.status(500).json({ error: 'Failed to update notification preferences.' });
+  }
+});
+
+// --- CALLS & PUSH CHANNELS ---
+
+// Get VAPID public key
+router.get('/calls/vapid-public-key', async (req, res) => {
+  res.json({ publicKey: process.env.VAPID_PUBLIC_KEY || null });
+});
+
+// Subscribe to push notifications
+router.post('/calls/subscribe', authenticateToken, async (req, res) => {
+  try {
+    const { subscription } = req.body;
+    if (!subscription) {
+      return res.status(400).json({ error: 'Subscription object required.' });
+    }
+    const saved = await db.savePushSubscription(req.user.id, subscription);
+    res.json({ success: true, saved });
+  } catch (err) {
+    console.error('Push subscribe error:', err);
+    res.status(500).json({ error: 'Failed to save push subscription.' });
+  }
+});
+
+// Get call history
+router.get('/calls/history', authenticateToken, async (req, res) => {
+  try {
+    const history = await db.getCallHistory(req.user.id);
+    res.json(history);
+  } catch (err) {
+    console.error('Get call history error:', err);
+    res.status(500).json({ error: 'Failed to retrieve call history.' });
+  }
+});
+
+// Reject call (useful from Service Worker background notification buttons)
+router.post('/calls/reject', authenticateToken, async (req, res) => {
+  try {
+    const { callId, callerId } = req.body;
+    if (!callId) {
+      return res.status(400).json({ error: 'callId required.' });
+    }
+    
+    // Update DB
+    await db.updateCallStatus(callId, 'rejected');
+
+    // Notify caller via Socket if connected
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`user_${callerId}`).emit('call_ended', { callId, status: 'rejected' });
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Reject call route error:', err);
+    res.status(500).json({ error: 'Failed to reject call.' });
   }
 });
 

@@ -14,6 +14,7 @@ import GlobalSearch from './components/GlobalSearch';
 import TaskDetailsModal from './components/TaskDetailsModal';
 import UserProfileModal from './components/UserProfileModal';
 import CallOverlay from './components/CallOverlay';
+import NotificationCenter from './components/NotificationCenter';
 import { Sun, Moon } from 'lucide-react';
 
 const MainLayout = () => {
@@ -30,6 +31,19 @@ const MainLayout = () => {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  // Listen for notification navigation events from Service Worker
+  useEffect(() => {
+    const handleOpenTask = (e) => {
+      const { taskId } = e.detail || {};
+      if (taskId) {
+        setSelectedTaskId(taskId);
+      }
+    };
+
+    window.addEventListener('goalmate-open-task', handleOpenTask);
+    return () => window.removeEventListener('goalmate-open-task', handleOpenTask);
   }, []);
 
   if (!auth || !auth.isLoggedIn) {
@@ -76,6 +90,9 @@ const MainLayout = () => {
 
       {/* Premium WebRTC Call Screen Overlay */}
       <CallOverlay />
+
+      {/* Notification Center Panel */}
+      <NotificationCenter />
 
       {/* Active Work Area View */}
       <main className={`main-content ${activeTab === 'chat' ? 'chat-view-active' : ''}`}>

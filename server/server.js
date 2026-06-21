@@ -8,6 +8,37 @@ require('dotenv').config();
 
 const db = require('./db');
 const routes = require('./routes');
+const webpush = require('web-push');
+
+const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY;
+const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY;
+
+if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
+  webpush.setVapidDetails(
+    'mailto:support@goalmate.com',
+    VAPID_PUBLIC_KEY,
+    VAPID_PRIVATE_KEY
+  );
+} else {
+  console.warn('[Push Warning] VAPID_PUBLIC_KEY or VAPID_PRIVATE_KEY is not defined in the environment. Web Push notifications will not be sent.');
+}
+
+// Helper to send a Web Push notification to user's registered devices
+async function sendWebPush(targetUserId, payload) {
+  try {
+    const subRecord = await db.getPushSubscription(targetUserId);
+    if (subRecord && subRecord.subscription) {
+      if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) {
+        console.warn('[Push Warning] Cannot send Web Push: VAPID keys are not configured in the environment.');
+        return;
+      }
+      await webpush.sendNotification(subRecord.subscription, JSON.stringify(payload));
+      console.log(`[Push] Successfully dispatched Web Push notification to user: ${targetUserId}`);
+    }
+  } catch (err) {
+    console.error(`[Push Error] Failed to send Web Push notification to user ${targetUserId}:`, err);
+  }
+}
 
 const app = express();
 const server = http.createServer(app);
@@ -78,6 +109,9 @@ io.use((socket, next) => {
 // Map to track active user socket connections
 const userSockets = new Map();
 
+// Map to track call ringing timeouts
+const activeCallRingingTimeouts = new Map();
+
 // Helper to broadcast status changes to friends
 async function broadcastStatusChange(userId, online) {
   try {
@@ -95,6 +129,39 @@ async function broadcastStatusChange(userId, online) {
     console.error('Error broadcasting status change:', err);
   }
 }
+
+// Helper to send a push notification to a user (persists + emits socket event)
+// type: 'task' or 'chat' — used to check user preferences
+async function sendNotification(targetUserId, { type, title, body, data, category }) {
+  try {
+    // Check user notification preferences
+    const prefs = await db.getNotificationPrefs(targetUserId);
+    const isTaskNotif = category === 'task';
+    const isChatNotif = category === 'chat';
+
+    if (isTaskNotif && !prefs.taskNotifications) return null;
+    if (isChatNotif && !prefs.chatNotifications) return null;
+
+    // Persist notification to database
+    const notification = await db.createNotification(targetUserId, {
+      type,
+      title,
+      body,
+      data: data || {}
+    });
+
+    // Emit real-time socket event
+    io.to(`user_${targetUserId}`).emit('notification', notification);
+
+    return notification;
+  } catch (err) {
+    console.error('Error sending notification:', err);
+    return null;
+  }
+}
+
+// Make sendNotification accessible from routes via app
+app.set('sendNotification', sendNotification);
 
 // Websocket Events
 io.on('connection', async (socket) => {
@@ -142,6 +209,17 @@ io.on('connection', async (socket) => {
       io.to(`user_${receiverId}`).emit('incoming_message', msg);
       if (receiverId !== userId) {
         io.to(`user_${userId}`).emit('incoming_message', msg);
+      }
+
+      // Persist chat notification for the receiver
+      if (receiverId !== userId) {
+        await sendNotification(receiverId, {
+          type: 'chat_message',
+          category: 'chat',
+          title: `New message from ${socket.username} 💬`,
+          body: content ? (content.length > 100 ? content.substring(0, 100) + '...' : content) : (sharedTask ? 'Shared a task with you' : 'Sent an attachment'),
+          data: { chatUserId: userId, senderUsername: socket.username, senderId: userId }
+        });
       }
       
       console.log(`[Socket] Message sent: ${socket.username} -> ${receiverId}`);
@@ -234,44 +312,187 @@ io.on('connection', async (socket) => {
   });
 
   // --- WebRTC DM Calling ---
-  socket.on('call_user', (data) => {
+  socket.on('call_user', async (data) => {
     const { to, offer, type } = data; // type: 'voice' | 'video'
     if (!to) return;
-    io.to(`user_${to}`).emit('incoming_call', {
-      from: userId,
-      fromUsername: socket.username,
-      offer,
-      type
-    });
-    console.log(`[Socket] Call initiated: ${socket.username} -> ${to} (${type})`);
+
+    try {
+      // Create a Call log in DB
+      const call = await db.createCall({
+        callerId: userId,
+        receiverId: to,
+        type,
+        status: 'ringing'
+      });
+
+      // Emit call event to receiver via socket if connected
+      io.to(`user_${to}`).emit('incoming_call', {
+        from: userId,
+        fromUsername: socket.username,
+        offer,
+        type,
+        callId: call.id
+      });
+
+      // Send Web Push Notification to receiver so they get it backgrounded/closed
+      await sendWebPush(to, {
+        type: 'incoming_call',
+        title: `Incoming ${type} call! 📞`,
+        body: `${socket.username} is calling you...`,
+        data: {
+          callId: call.id,
+          callerId: userId,
+          callerUsername: socket.username,
+          callType: type
+        }
+      });
+
+      // Set a 30-second Ringing Timeout for Missed Call Auto-generation
+      const timeoutId = setTimeout(async () => {
+        const freshCall = await db.getCall(call.id);
+        if (freshCall && freshCall.status === 'ringing') {
+          // Update DB to 'missed'
+          await db.updateCallStatus(call.id, 'missed');
+
+          // Generate a missed call notification record
+          await db.createNotification(to, {
+            type: 'missed_call',
+            title: `Missed ${type} call 📞`,
+            body: `From ${socket.username}`,
+            data: { callerId: userId, callId: call.id }
+          });
+
+          // Emit call_ended to both peers
+          io.to(`user_${to}`).emit('call_ended', { callId: call.id, status: 'missed' });
+          io.to(`user_${userId}`).emit('call_ended', { callId: call.id, status: 'missed' });
+          console.log(`[Socket] Call timed out (missed): ${call.id}`);
+        }
+        activeCallRingingTimeouts.delete(call.id);
+      }, 30000);
+
+      activeCallRingingTimeouts.set(call.id, timeoutId);
+      console.log(`[Socket] Call initiated: ${socket.username} -> ${to} (${type}) [CallID: ${call.id}]`);
+    } catch (err) {
+      console.error('Failed to initiate call:', err);
+    }
   });
 
-  socket.on('answer_call', (data) => {
-    const { to, answer } = data;
+  socket.on('answer_call', async (data) => {
+    const { to, answer, callId } = data;
     if (!to) return;
-    io.to(`user_${to}`).emit('call_accepted', {
-      from: userId,
-      answer
-    });
-    console.log(`[Socket] Call answered: ${socket.username} -> ${to}`);
+
+    try {
+      // Clear ringing timeout
+      if (callId && activeCallRingingTimeouts.has(callId)) {
+        clearTimeout(activeCallRingingTimeouts.get(callId));
+        activeCallRingingTimeouts.delete(callId);
+      }
+
+      // Update DB to 'connected'
+      if (callId) {
+        await db.updateCallStatus(callId, 'connected');
+      }
+
+      io.to(`user_${to}`).emit('call_accepted', {
+        from: userId,
+        answer,
+        callId
+      });
+      console.log(`[Socket] Call answered: ${socket.username} -> ${to} [CallID: ${callId}]`);
+    } catch (err) {
+      console.error('Answer call error:', err);
+    }
   });
 
   socket.on('ice_candidate', (data) => {
-    const { to, candidate } = data;
+    const { to, candidate, callId } = data;
     if (!to) return;
     io.to(`user_${to}`).emit('ice_candidate', {
       from: userId,
-      candidate
+      candidate,
+      callId
     });
   });
 
-  socket.on('end_call', (data) => {
-    const { to } = data;
+  socket.on('reject_call', async (data) => {
+    const { to, callId } = data;
     if (!to) return;
-    io.to(`user_${to}`).emit('call_ended', {
-      from: userId
+
+    try {
+      // Clear ringing timeout
+      if (callId && activeCallRingingTimeouts.has(callId)) {
+        clearTimeout(activeCallRingingTimeouts.get(callId));
+        activeCallRingingTimeouts.delete(callId);
+      }
+
+      // Update DB to 'rejected'
+      if (callId) {
+        await db.updateCallStatus(callId, 'rejected');
+      }
+
+      // Generate a notification for the caller
+      await db.createNotification(to, {
+        type: 'call_rejected',
+        title: 'Call Rejected ❌',
+        body: `${socket.username} declined your call`,
+        data: { receiverId: userId, callId }
+      });
+
+      io.to(`user_${to}`).emit('call_ended', {
+        from: userId,
+        status: 'rejected',
+        callId
+      });
+      console.log(`[Socket] Call rejected: ${socket.username} -> ${to}`);
+    } catch (err) {
+      console.error('Reject call error:', err);
+    }
+  });
+
+  socket.on('end_call', async (data) => {
+    const { to, callId, duration } = data;
+    if (!to) return;
+
+    try {
+      // Clear ringing timeout
+      if (callId && activeCallRingingTimeouts.has(callId)) {
+        clearTimeout(activeCallRingingTimeouts.get(callId));
+        activeCallRingingTimeouts.delete(callId);
+      }
+
+      // Update DB to 'ended'
+      if (callId) {
+        await db.updateCallStatus(callId, 'ended', duration || 0);
+      }
+
+      io.to(`user_${to}`).emit('call_ended', {
+        from: userId,
+        status: 'ended',
+        callId
+      });
+      console.log(`[Socket] Call ended: ${socket.username} -> ${to} [CallID: ${callId}]`);
+    } catch (err) {
+      console.error('End call error:', err);
+    }
+  });
+
+  socket.on('screen_share_status', (data) => {
+    const { to, isSharing } = data;
+    if (!to) return;
+    io.to(`user_${to}`).emit('screen_share_status', {
+      from: userId,
+      isSharing
     });
-    console.log(`[Socket] Call ended: ${socket.username} -> ${to}`);
+  });
+
+  socket.on('call_mode_switch', (data) => {
+    const { to, newType } = data; // newType: 'voice' | 'video'
+    if (!to) return;
+    io.to(`user_${to}`).emit('call_mode_switched', {
+      from: userId,
+      newType
+    });
+    console.log(`[Socket] Call mode switch relay: ${socket.username} -> ${to} (${newType})`);
   });
 
   // --- Connection Cleanup ---

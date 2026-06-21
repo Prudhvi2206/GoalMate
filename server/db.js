@@ -140,6 +140,39 @@ const feedSchema = new mongoose.Schema({
   timestamp: { type: String }
 }, { collection: 'feed' });
 
+const notificationSchema = new mongoose.Schema({
+  id: { type: String, required: true, unique: true },
+  userId: { type: String, required: true, index: true },
+  type: { type: String, required: true }, // 'task_created','task_assigned','task_updated','task_status','task_completed','task_deleted','task_due_date','task_comment','chat_message','chat_group','friend_request','nudge'
+  title: { type: String, required: true },
+  body: { type: String, default: '' },
+  data: { type: mongoose.Schema.Types.Mixed, default: {} }, // { taskId, chatUserId, senderId, senderUsername, etc. }
+  read: { type: Boolean, default: false },
+  createdAt: { type: String }
+}, { collection: 'notifications' });
+
+const notificationPrefsSchema = new mongoose.Schema({
+  userId: { type: String, required: true, unique: true, index: true },
+  taskNotifications: { type: Boolean, default: true },
+  chatNotifications: { type: Boolean, default: true }
+}, { collection: 'notification_prefs' });
+
+const callSchema = new mongoose.Schema({
+  id: { type: String, required: true, unique: true },
+  callerId: { type: String, required: true },
+  receiverId: { type: String, required: true },
+  type: { type: String, required: true }, // 'voice' | 'video'
+  status: { type: String, required: true }, // 'ringing' | 'connected' | 'rejected' | 'ended' | 'missed'
+  duration: { type: Number, default: 0 }, // in seconds
+  createdAt: { type: String, required: true },
+  endedAt: { type: String }
+}, { collection: 'calls' });
+
+const pushSubscriptionSchema = new mongoose.Schema({
+  userId: { type: String, required: true, unique: true, index: true },
+  subscription: { type: mongoose.Schema.Types.Mixed, required: true }
+}, { collection: 'push_subscriptions' });
+
 // --- MONGOOSE MODELS ---
 
 const User = mongoose.model('User', userSchema);
@@ -149,6 +182,10 @@ const Message = mongoose.model('Message', messageSchema);
 const Journal = mongoose.model('Journal', journalSchema);
 const Application = mongoose.model('Application', applicationSchema);
 const Feed = mongoose.model('Feed', feedSchema);
+const NotificationModel = mongoose.model('Notification', notificationSchema);
+const NotificationPrefs = mongoose.model('NotificationPrefs', notificationPrefsSchema);
+const Call = mongoose.model('Call', callSchema);
+const PushSubscription = mongoose.model('PushSubscription', pushSubscriptionSchema);
 
 function computeTaskStatus(task) {
   if (task.completed) {
@@ -824,6 +861,133 @@ class DatabaseManager {
     });
     await item.save();
     return item.toObject();
+  }
+
+  // --- Notifications API ---
+  async createNotification(userId, { type, title, body, data }) {
+    const notification = new NotificationModel({
+      id: uuidv4(),
+      userId,
+      type,
+      title,
+      body: body || '',
+      data: data || {},
+      read: false,
+      createdAt: new Date().toISOString()
+    });
+    await notification.save();
+    return notification.toObject();
+  }
+
+  async getNotifications(userId, limit = 50) {
+    return await NotificationModel.find({ userId })
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .lean();
+  }
+
+  async markNotificationRead(notificationId) {
+    const notif = await NotificationModel.findOneAndUpdate(
+      { id: notificationId },
+      { $set: { read: true } },
+      { new: true, lean: true }
+    );
+    return notif;
+  }
+
+  async markAllNotificationsRead(userId) {
+    const res = await NotificationModel.updateMany(
+      { userId, read: false },
+      { $set: { read: true } }
+    );
+    return res.modifiedCount;
+  }
+
+  async getUnreadNotificationCount(userId) {
+    return await NotificationModel.countDocuments({ userId, read: false });
+  }
+
+  // --- Notification Preferences API ---
+  async getNotificationPrefs(userId) {
+    let prefs = await NotificationPrefs.findOne({ userId }).lean();
+    if (!prefs) {
+      // Create default prefs
+      const newPrefs = new NotificationPrefs({
+        userId,
+        taskNotifications: true,
+        chatNotifications: true
+      });
+      await newPrefs.save();
+      prefs = newPrefs.toObject();
+    }
+    return prefs;
+  }
+
+  async updateNotificationPrefs(userId, prefs) {
+    const updateFields = {};
+    if (prefs.taskNotifications !== undefined) updateFields.taskNotifications = !!prefs.taskNotifications;
+    if (prefs.chatNotifications !== undefined) updateFields.chatNotifications = !!prefs.chatNotifications;
+
+    const updated = await NotificationPrefs.findOneAndUpdate(
+      { userId },
+      { $set: updateFields },
+      { new: true, upsert: true, lean: true }
+    );
+    return updated;
+  }
+
+  // --- Calling & Push Subscriptions API ---
+  async createCall({ callerId, receiverId, type, status }) {
+    const call = new Call({
+      id: uuidv4(),
+      callerId,
+      receiverId,
+      type,
+      status,
+      duration: 0,
+      createdAt: new Date().toISOString()
+    });
+    await call.save();
+    return call.toObject();
+  }
+
+  async updateCallStatus(callId, status, duration = 0) {
+    const updateFields = { status };
+    if (status === 'ended') {
+      updateFields.duration = duration;
+      updateFields.endedAt = new Date().toISOString();
+    }
+    const updated = await Call.findOneAndUpdate(
+      { id: callId },
+      { $set: updateFields },
+      { new: true, lean: true }
+    );
+    return updated;
+  }
+
+  async getCall(callId) {
+    return await Call.findOne({ id: callId }).lean();
+  }
+
+  async getCallHistory(userId) {
+    return await Call.find({
+      $or: [{ callerId: userId }, { receiverId: userId }]
+    })
+    .sort({ createdAt: -1 })
+    .limit(50)
+    .lean();
+  }
+
+  async savePushSubscription(userId, subscription) {
+    return await PushSubscription.findOneAndUpdate(
+      { userId },
+      { $set: { subscription } },
+      { new: true, upsert: true, lean: true }
+    );
+  }
+
+  async getPushSubscription(userId) {
+    return await PushSubscription.findOne({ userId }).lean();
   }
 }
 

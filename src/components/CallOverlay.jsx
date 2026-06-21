@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { 
   Phone, PhoneOff, Video, VideoOff, Mic, MicOff, Sparkles, Volume2,
-  Monitor, MonitorOff, Maximize, Minimize
+  Monitor, MonitorOff, Maximize, Minimize, RefreshCw
 } from 'lucide-react';
 
 const CallOverlay = () => {
@@ -22,8 +22,18 @@ const CallOverlay = () => {
     toggleVideoMute,
     isScreenSharing,
     startScreenShare,
-    stopScreenShare
+    stopScreenShare,
+    rejectCall,
+    switchCamera,
+    switchCallMode,
+    callDuration
   } = useApp();
+
+  const formatDuration = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
 
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
@@ -128,6 +138,9 @@ const CallOverlay = () => {
                   {isScreenSharing && <span className="screen-share-indicator-label"> • Sharing Screen</span>}
                 </div>
               </div>
+              <div className="call-timer-badge">
+                {formatDuration(callDuration)}
+              </div>
             </div>
 
             {isVideo ? (
@@ -222,6 +235,28 @@ const CallOverlay = () => {
             </button>
           )}
 
+          {/* Flip Camera (Only in video call) */}
+          {callState === 'connected' && isVideo && (
+            <button 
+              onClick={switchCamera} 
+              className="call-action-btn-premium camera-flip"
+              title="Flip Camera"
+            >
+              <RefreshCw size={20} />
+            </button>
+          )}
+
+          {/* Switch Voice/Video call mode */}
+          {callState === 'connected' && (
+            <button 
+              onClick={() => switchCallMode(isVideo ? 'voice' : 'video')} 
+              className="call-action-btn-premium mode-switch"
+              title={isVideo ? 'Switch to Voice Call' : 'Switch to Video Call'}
+            >
+              {isVideo ? <Phone size={20} /> : <Video size={20} />}
+            </button>
+          )}
+
           {/* Screen Share Toggle Button (Only in Connected state) */}
           {callState === 'connected' && (
             <button 
@@ -257,7 +292,7 @@ const CallOverlay = () => {
 
           {/* Decline / Hang Up Button */}
           <button 
-            onClick={endCall} 
+            onClick={callState === 'ringing' && !isCaller ? rejectCall : endCall} 
             className="call-action-btn-premium decline"
             title={callState === 'ringing' && !isCaller ? 'Decline call' : 'Hang up call'}
           >
@@ -641,6 +676,18 @@ const CallOverlay = () => {
           background: rgba(99, 102, 241, 0.15);
           border-color: rgba(99, 102, 241, 0.3);
           color: var(--accent-primary, #6366f1);
+        }
+
+        .call-timer-badge {
+          background: rgba(255, 255, 255, 0.08);
+          border: 1px solid rgba(255, 255, 255, 0.12);
+          color: var(--accent-secondary, #06b6d4);
+          font-family: monospace;
+          font-size: 1.1rem;
+          font-weight: 700;
+          padding: 6px 14px;
+          border-radius: 12px;
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
         }
 
         /* Animations declarations */

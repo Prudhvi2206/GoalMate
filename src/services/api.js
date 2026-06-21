@@ -194,6 +194,53 @@ const api = {
       request('/feed', {
         method: 'GET'
       })
+  },
+
+  // --- Notifications ---
+  notifications: {
+    getNotifications: (limit = 50) => 
+      request(`/notifications?limit=${limit}`, {
+        method: 'GET'
+      }),
+
+    getUnreadCount: () => 
+      request('/notifications/unread-count', {
+        method: 'GET'
+      }),
+
+    markRead: (notificationId) => 
+      request(`/notifications/read/${notificationId}`, {
+        method: 'POST'
+      }),
+
+    markAllRead: () => 
+      request('/notifications/read-all', {
+        method: 'POST'
+      }),
+
+    getPrefs: () => 
+      request('/notifications/prefs', {
+        method: 'GET'
+      }),
+
+    updatePrefs: (prefs) => 
+      request('/notifications/prefs', {
+        method: 'PUT',
+        body: JSON.stringify(prefs)
+      })
+  },
+
+  // --- Calling ---
+  calls: {
+    getHistory: () => 
+      request('/calls/history', {
+        method: 'GET'
+      }),
+    subscribePush: (subscription) => 
+      request('/calls/subscribe', {
+        method: 'POST',
+        body: JSON.stringify({ subscription })
+      })
   }
 };
 

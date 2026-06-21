@@ -1,6 +1,7 @@
-import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { io } from 'socket.io-client';
 import api from '../services/api';
+import { registerServiceWorker, requestNotificationPermission, showNativeNotification, onServiceWorkerMessage, isPageVisible, syncTokenWithServiceWorker, subscribeToPushNotifications } from '../services/notificationService';
 
 const AppContext = createContext();
 
@@ -35,6 +36,12 @@ export const AppProvider = ({ children }) => {
   const [theme, setTheme] = useState('dark');
   const [viewingUser, setViewingUser] = useState(null);
 
+  // --- Notification System States ---
+  const [notifications, setNotifications] = useState([]);
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
+  const [notificationPrefs, setNotificationPrefs] = useState({ taskNotifications: true, chatNotifications: true });
+  const [notificationCenterOpen, setNotificationCenterOpen] = useState(false);
+
   // --- WebRTC Calling States ---
   const [callState, setCallState] = useState('idle'); // idle | calling | ringing | connected
   const [callType, setCallType] = useState('voice'); // voice | video
@@ -47,6 +54,7 @@ export const AppProvider = ({ children }) => {
   const [isCallSimulated, setIsCallSimulated] = useState(false);
   const [screenStream, setScreenStream] = useState(null);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
+  const [callDuration, setCallDuration] = useState(0); // call duration in seconds
 
   const socketRef = useRef(null);
   const tasksRef = useRef(tasks);
@@ -56,6 +64,12 @@ export const AppProvider = ({ children }) => {
   const friendsRef = useRef(friends);
   const activeCallPartnerRef = useRef(activeCallPartner);
   const userRef = useRef(user);
+  
+  const callDurationRef = useRef(0);
+  const callTimerIntervalRef = useRef(null);
+  const callIdRef = useRef(null);
+  const pendingCandidatesRef = useRef([]);
+  const cameraFacingModeRef = useRef('user');
 
   useEffect(() => {
     callStateRef.current = callState;
@@ -77,8 +91,18 @@ export const AppProvider = ({ children }) => {
     userRef.current = user;
   }, [user]);
 
-  // Request browser push notification permission
+  // Request browser push notification permission & register Service Worker
   useEffect(() => {
+    // Register Service Worker for background notifications
+    registerServiceWorker().then(() => {
+      console.log('[App] Service Worker ready for notifications.');
+    });
+
+    // Listen for Service Worker notification click messages
+    onServiceWorkerMessage((data) => {
+      handleNotificationNavigation(data);
+    });
+
     if ('Notification' in window) {
       if (Notification.permission === 'granted') {
         setHasNotificationPermission(true);
@@ -93,19 +117,19 @@ export const AppProvider = ({ children }) => {
     }
   }, []);
 
-  // Show in-app Toast & trigger OS native push notification
-  const triggerNotification = (title, body, type = 'info') => {
+  // Show in-app Toast & trigger OS native push notification via Service Worker
+  const triggerNotification = (title, body, type = 'info', notifData = {}) => {
     addToast(title + (body ? `: ${body}` : ''), type);
 
+    // Forward to Service Worker for native push (especially when app is backgrounded)
     if ('Notification' in window && Notification.permission === 'granted') {
-      try {
-        new Notification(title, {
-          body: body || 'GoalMate Alert',
-          icon: '/favicon.ico'
-        });
-      } catch (e) {
-        console.warn('FCM native notification failed', e);
-      }
+      showNativeNotification({
+        title,
+        body: body || 'GoalMate Alert',
+        type: notifData.type || type,
+        data: notifData,
+        tag: `goalmate-${notifData.type || type}-${Date.now()}`
+      });
     }
   };
 
@@ -156,6 +180,24 @@ export const AppProvider = ({ children }) => {
 
       // Connect Socket
       connectSocket(token, profile.id);
+
+      // Sync token to Service Worker & Register Web Push
+      syncTokenWithServiceWorker(token);
+      subscribeToPushNotifications(token);
+
+      // Fetch notification data
+      try {
+        const [notifList, countResult, prefs] = await Promise.all([
+          api.notifications.getNotifications(50),
+          api.notifications.getUnreadCount(),
+          api.notifications.getPrefs()
+        ]);
+        setNotifications(notifList);
+        setUnreadNotificationCount(countResult.count);
+        setNotificationPrefs(prefs);
+      } catch (notifErr) {
+        console.error('Failed to load notifications:', notifErr);
+      }
     } catch (err) {
       console.error('Failed to restore session:', err);
       const isAuthError = err.status === 401 || err.status === 403 || 
@@ -239,6 +281,11 @@ export const AppProvider = ({ children }) => {
     }
     incomingOfferRef.current = null;
 
+    if (callTimerIntervalRef.current) {
+      clearInterval(callTimerIntervalRef.current);
+      callTimerIntervalRef.current = null;
+    }
+
     setCallState('idle');
     setLocalStream(null);
     setRemoteStream(null);
@@ -246,6 +293,22 @@ export const AppProvider = ({ children }) => {
     setIsVideoMuted(false);
     setIsCallSimulated(false);
     setActiveCallPartner(null);
+    setCallDuration(0);
+    callDurationRef.current = 0;
+    callIdRef.current = null;
+    pendingCandidatesRef.current = [];
+  };
+
+  const startCallTimer = () => {
+    if (callTimerIntervalRef.current) {
+      clearInterval(callTimerIntervalRef.current);
+    }
+    setCallDuration(0);
+    callDurationRef.current = 0;
+    callTimerIntervalRef.current = setInterval(() => {
+      callDurationRef.current += 1;
+      setCallDuration(callDurationRef.current);
+    }, 1000);
   };
 
   const initiateCall = async (partnerId, type) => {
@@ -260,9 +323,13 @@ export const AppProvider = ({ children }) => {
     setIsCaller(true);
     setIsCallSimulated(false);
     setCallState('calling');
+    pendingCandidatesRef.current = [];
 
     try {
-      const constraints = { audio: true, video: type === 'video' };
+      const constraints = { 
+        audio: true, 
+        video: type === 'video' ? { facingMode: cameraFacingModeRef.current } : false 
+      };
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
       setLocalStream(stream);
 
@@ -275,7 +342,11 @@ export const AppProvider = ({ children }) => {
 
       pc.onicecandidate = (event) => {
         if (event.candidate && socketRef.current) {
-          socketRef.current.emit('ice_candidate', { to: partnerId, candidate: event.candidate });
+          socketRef.current.emit('ice_candidate', { 
+            to: partnerId, 
+            candidate: event.candidate,
+            callId: callIdRef.current
+          });
         }
       };
 
@@ -311,16 +382,24 @@ export const AppProvider = ({ children }) => {
     const partnerId = activeCallPartnerRef.current.id;
 
     setCallState('connected');
+    startCallTimer();
 
     if (isCallSimulated) {
       if (socketRef.current) {
-        socketRef.current.emit('answer_call', { to: partnerId, answer: { type: 'simulated' } });
+        socketRef.current.emit('answer_call', { 
+          to: partnerId, 
+          answer: { type: 'simulated' },
+          callId: callIdRef.current
+        });
       }
       return;
     }
 
     try {
-      const constraints = { audio: true, video: callType === 'video' };
+      const constraints = { 
+        audio: true, 
+        video: callType === 'video' ? { facingMode: cameraFacingModeRef.current } : false 
+      };
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
       setLocalStream(stream);
 
@@ -333,7 +412,11 @@ export const AppProvider = ({ children }) => {
 
       pc.onicecandidate = (event) => {
         if (event.candidate && socketRef.current) {
-          socketRef.current.emit('ice_candidate', { to: partnerId, candidate: event.candidate });
+          socketRef.current.emit('ice_candidate', { 
+            to: partnerId, 
+            candidate: event.candidate,
+            callId: callIdRef.current
+          });
         }
       };
 
@@ -349,7 +432,21 @@ export const AppProvider = ({ children }) => {
         await pc.setLocalDescription(answer);
 
         if (socketRef.current) {
-          socketRef.current.emit('answer_call', { to: partnerId, answer });
+          socketRef.current.emit('answer_call', { 
+            to: partnerId, 
+            answer,
+            callId: callIdRef.current
+          });
+        }
+
+        // Add pending candidate queue
+        while (pendingCandidatesRef.current.length > 0) {
+          const cand = pendingCandidatesRef.current.shift();
+          try {
+            await pc.addIceCandidate(new RTCIceCandidate(cand));
+          } catch (e) {
+            console.error('Failed to add queued ice candidate:', e);
+          }
         }
       }
     } catch (err) {
@@ -358,14 +455,32 @@ export const AppProvider = ({ children }) => {
       addToast('Permission denied or media hardware missing. Connected in simulation mode.', 'info');
       
       if (socketRef.current) {
-        socketRef.current.emit('answer_call', { to: partnerId, answer: { type: 'simulated' } });
+        socketRef.current.emit('answer_call', { 
+          to: partnerId, 
+          answer: { type: 'simulated' },
+          callId: callIdRef.current
+        });
       }
     }
   };
 
+  const rejectCall = () => {
+    if (activeCallPartnerRef.current && socketRef.current) {
+      socketRef.current.emit('reject_call', { 
+        to: activeCallPartnerRef.current.id,
+        callId: callIdRef.current
+      });
+    }
+    cleanupCall();
+  };
+
   const endCall = () => {
     if (activeCallPartnerRef.current && socketRef.current) {
-      socketRef.current.emit('end_call', { to: activeCallPartnerRef.current.id });
+      socketRef.current.emit('end_call', { 
+        to: activeCallPartnerRef.current.id,
+        callId: callIdRef.current,
+        duration: callDurationRef.current
+      });
     }
     cleanupCall();
   };
@@ -391,6 +506,104 @@ export const AppProvider = ({ children }) => {
       }
     } else if (isCallSimulated) {
       setIsVideoMuted(!isVideoMuted);
+    }
+  };
+
+  const switchCamera = async () => {
+    if (!localStream || callType !== 'video') return;
+
+    try {
+      const nextFacingMode = cameraFacingModeRef.current === 'user' ? 'environment' : 'user';
+      cameraFacingModeRef.current = nextFacingMode;
+
+      localStream.getVideoTracks().forEach(track => track.stop());
+
+      const constraints = {
+        video: { facingMode: nextFacingMode }
+      };
+      const newStream = await navigator.mediaDevices.getUserMedia(constraints);
+      const newVideoTrack = newStream.getVideoTracks()[0];
+
+      const updatedStream = new MediaStream([
+        ...localStream.getAudioTracks(),
+        newVideoTrack
+      ]);
+      setLocalStream(updatedStream);
+
+      if (peerConnectionRef.current) {
+        const senders = peerConnectionRef.current.getSenders();
+        const videoSender = senders.find(sender => sender.track && sender.track.kind === 'video');
+        if (videoSender) {
+          await videoSender.replaceTrack(newVideoTrack);
+        }
+      }
+
+      addToast(`Switched camera to ${nextFacingMode === 'user' ? 'Front' : 'Rear'}`, 'success');
+    } catch (e) {
+      console.error('Failed to switch camera:', e);
+      addToast('Camera flip failed: ' + e.message, 'error');
+    }
+  };
+
+  const switchCallMode = async (newType) => {
+    if (newType === callType) return;
+    setCallType(newType);
+
+    if (socketRef.current && activeCallPartnerRef.current) {
+      socketRef.current.emit('call_mode_switch', {
+        to: activeCallPartnerRef.current.id,
+        newType
+      });
+    }
+
+    if (isCallSimulated) {
+      addToast(`Switched to ${newType} call (Simulation mode).`, 'info');
+      return;
+    }
+
+    try {
+      if (newType === 'voice') {
+        localStream.getVideoTracks().forEach(track => track.stop());
+        const updatedStream = new MediaStream(localStream.getAudioTracks());
+        setLocalStream(updatedStream);
+        
+        if (peerConnectionRef.current) {
+          const senders = peerConnectionRef.current.getSenders();
+          const videoSender = senders.find(sender => sender.track && sender.track.kind === 'video');
+          if (videoSender) {
+            peerConnectionRef.current.removeTrack(videoSender);
+          }
+        }
+        setIsVideoMuted(false);
+      } else {
+        const constraints = { video: { facingMode: cameraFacingModeRef.current } };
+        const videoStream = await navigator.mediaDevices.getUserMedia(constraints);
+        const newVideoTrack = videoStream.getVideoTracks()[0];
+
+        const updatedStream = new MediaStream([
+          ...localStream.getAudioTracks(),
+          newVideoTrack
+        ]);
+        setLocalStream(updatedStream);
+
+        if (peerConnectionRef.current) {
+          peerConnectionRef.current.addTrack(newVideoTrack, updatedStream);
+          
+          const offer = await peerConnectionRef.current.createOffer();
+          await peerConnectionRef.current.setLocalDescription(offer);
+          if (socketRef.current && activeCallPartnerRef.current) {
+            socketRef.current.emit('call_user', {
+              to: activeCallPartnerRef.current.id,
+              offer,
+              type: 'video'
+            });
+          }
+        }
+      }
+      addToast(`Call switched to ${newType}.`, 'success');
+    } catch (e) {
+      console.error('Failed to switch call mode:', e);
+      addToast('Call mode switch failed: ' + e.message, 'error');
     }
   };
 
@@ -617,20 +830,36 @@ export const AppProvider = ({ children }) => {
     socket.on('incoming_call', (data) => {
       const partner = friendsRef.current.find(f => f.id === data.from) || { id: data.from, name: data.fromUsername, username: data.fromUsername };
       if (callStateRef.current !== 'idle') {
-        socket.emit('end_call', { to: data.from });
+        socket.emit('reject_call', { to: data.from, callId: data.callId });
         return;
       }
+      callIdRef.current = data.callId;
       incomingOfferRef.current = data.offer;
       setCallType(data.type);
       setActiveCallPartner(partner);
       setIsCaller(false);
       setIsCallSimulated(data.offer && data.offer.type === 'simulated');
       setCallState('ringing');
-      triggerNotification(`Incoming ${data.type} call! 📞`, `From ${partner.name}`, 'info');
+      
+      if (!isPageVisible()) {
+        showNativeNotification({
+          title: `Incoming ${data.type} call! 📞`,
+          body: `From ${partner.name}`,
+          type: 'incoming_call',
+          data: {
+            callId: data.callId,
+            callerId: data.from,
+            callerUsername: data.fromUsername,
+            callType: data.type
+          }
+        });
+      }
     });
 
     socket.on('call_accepted', async (data) => {
       setCallState('connected');
+      startCallTimer();
+      callIdRef.current = data.callId;
       if (data.answer && data.answer.type === 'simulated') {
         setIsCallSimulated(true);
         addToast('Call connected (Simulation fallback).', 'info');
@@ -638,6 +867,15 @@ export const AppProvider = ({ children }) => {
         if (peerConnectionRef.current) {
           try {
             await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(data.answer));
+            
+            while (pendingCandidatesRef.current.length > 0) {
+              const cand = pendingCandidatesRef.current.shift();
+              try {
+                await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(cand));
+              } catch (e) {
+                console.error('Failed to add queued candidate:', e);
+              }
+            }
           } catch (e) {
             console.error('Failed to set remote description on call_accepted:', e);
           }
@@ -646,18 +884,35 @@ export const AppProvider = ({ children }) => {
     });
 
     socket.on('ice_candidate', async (data) => {
-      if (peerConnectionRef.current) {
+      if (peerConnectionRef.current && peerConnectionRef.current.remoteDescription) {
         try {
           await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(data.candidate));
         } catch (e) {
           console.error('Failed to add ice candidate:', e);
         }
+      } else {
+        pendingCandidatesRef.current.push(data.candidate);
       }
     });
 
     socket.on('call_ended', (data) => {
       cleanupCall();
-      addToast('Call ended.', 'info');
+      if (data.status === 'rejected') {
+        addToast('Call declined by partner.', 'error');
+      } else if (data.status === 'missed') {
+        addToast('Call timed out (missed).', 'info');
+      } else {
+        addToast('Call ended.', 'info');
+      }
+    });
+
+    socket.on('call_mode_switched', (data) => {
+      setCallType(data.newType);
+      addToast(`Call switched to ${data.newType} by partner.`, 'info');
+    });
+
+    socket.on('screen_share_status', (data) => {
+      addToast(data.isSharing ? 'Partner started screen sharing.' : 'Partner stopped screen sharing.', 'info');
     });
 
     socket.on('journal_shared', (data) => {
@@ -674,8 +929,26 @@ export const AppProvider = ({ children }) => {
       setJournal(prev => prev.filter(j => j.id !== data.id));
     });
 
-    socket.on('screen_share_status', (data) => {
-      addToast(data.isSharing ? 'Partner started screen sharing.' : 'Partner stopped screen sharing.', 'info');
+    // --- Unified Notification Listener ---
+    socket.on('notification', (notification) => {
+      // Add to notifications list
+      setNotifications(prev => {
+        if (prev.some(n => n.id === notification.id)) return prev;
+        return [notification, ...prev];
+      });
+      // Increment unread count
+      setUnreadNotificationCount(prev => prev + 1);
+
+      // Forward to Service Worker for native push when app is backgrounded
+      if (!isPageVisible()) {
+        showNativeNotification({
+          title: notification.title,
+          body: notification.body,
+          type: notification.type,
+          data: notification.data || {},
+          tag: `goalmate-notif-${notification.id}`
+        });
+      }
     });
   };
 
@@ -705,6 +978,8 @@ export const AppProvider = ({ children }) => {
 
       // Connect Socket
       connectSocket(data.token, data.user.id);
+      syncTokenWithServiceWorker(data.token);
+      subscribeToPushNotifications(data.token);
       
       triggerNotification('Welcome Back! 🎉', `Logged in as ${data.user.username}`, 'success');
     } catch (err) {
@@ -732,6 +1007,8 @@ export const AppProvider = ({ children }) => {
 
       // Connect Socket
       connectSocket(data.token, data.user.id);
+      syncTokenWithServiceWorker(data.token);
+      subscribeToPushNotifications(data.token);
 
       triggerNotification('Registered Successfully! 🚀', `Welcome ${data.user.username}! friend code: ${data.user.code}`, 'success');
     } catch (err) {
@@ -757,6 +1034,10 @@ export const AppProvider = ({ children }) => {
     setFeed([]);
     setChatHistory([]);
     setActivityLog([]);
+    setNotifications([]);
+    setUnreadNotificationCount(0);
+    setNotificationPrefs({ taskNotifications: true, chatNotifications: true });
+    setNotificationCenterOpen(false);
     triggerNotification('Logged Out', 'Successfully logged out.', 'info');
   };
 
@@ -1200,6 +1481,67 @@ export const AppProvider = ({ children }) => {
     }
   };
 
+  // --- NOTIFICATION MANAGEMENT ---
+
+  const fetchNotifications = async () => {
+    try {
+      const [notifList, countResult] = await Promise.all([
+        api.notifications.getNotifications(50),
+        api.notifications.getUnreadCount()
+      ]);
+      setNotifications(notifList);
+      setUnreadNotificationCount(countResult.count);
+    } catch (err) {
+      console.error('Failed to fetch notifications:', err);
+    }
+  };
+
+  const markNotificationRead = async (notificationId) => {
+    try {
+      await api.notifications.markRead(notificationId);
+      setNotifications(prev => prev.map(n => n.id === notificationId ? { ...n, read: true } : n));
+      setUnreadNotificationCount(prev => Math.max(0, prev - 1));
+    } catch (err) {
+      console.error('Failed to mark notification read:', err);
+    }
+  };
+
+  const markAllNotificationsRead = async () => {
+    try {
+      await api.notifications.markAllRead();
+      setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+      setUnreadNotificationCount(0);
+    } catch (err) {
+      console.error('Failed to mark all notifications read:', err);
+    }
+  };
+
+  const updateNotificationPrefs = async (prefs) => {
+    try {
+      const updated = await api.notifications.updatePrefs(prefs);
+      setNotificationPrefs(updated);
+      addToast('Notification preferences updated.', 'success');
+    } catch (err) {
+      addToast('Failed to update notification settings.', 'error');
+    }
+  };
+
+  // Handle notification click navigation (from ServiceWorker or NotificationCenter)
+  const handleNotificationNavigation = useCallback((data) => {
+    if (!data) return;
+
+    if (data.type?.startsWith('chat_')) {
+      setActiveTab('chat');
+      // If there's a chatUserId, the ChatView will need to select that conversation
+      // We emit a custom event that ChatView can listen to
+      window.dispatchEvent(new CustomEvent('goalmate-open-chat', { detail: { userId: data.chatUserId } }));
+    } else if (data.type?.startsWith('task_') && data.taskId) {
+      setActiveTab('dashboard');
+      // Emit event for DashboardView to open the task
+      window.dispatchEvent(new CustomEvent('goalmate-open-task', { detail: { taskId: data.taskId } }));
+    }
+  }, []);
+
   // --- DYNAMIC ACTIVITY LOG GENERATOR ---
   useEffect(() => {
     if (tasks.length === 0) {
@@ -1297,6 +1639,38 @@ export const AppProvider = ({ children }) => {
     return () => clearInterval(ticker);
   }, []);
 
+  useEffect(() => {
+    // Check URL parameters for background call redirect
+    const params = new URLSearchParams(window.location.search);
+    const view = params.get('view');
+    const action = params.get('action');
+    if (view === 'chat' && action === 'accept_call') {
+      const callId = params.get('callId');
+      const callerId = params.get('callerId');
+      const callType = params.get('callType');
+      
+      const checkAuth = setInterval(() => {
+        if (auth.isLoggedIn && friends.length > 0) {
+          clearInterval(checkAuth);
+          const partner = friends.find(f => f.id === callerId) || { id: callerId, name: callerId, username: callerId };
+          callIdRef.current = callId;
+          setCallType(callType || 'voice');
+          setActiveCallPartner(partner);
+          setIsCaller(false);
+          setCallState('ringing');
+          
+          setTimeout(() => {
+            acceptCall();
+          }, 200);
+          
+          window.history.replaceState({}, document.title, window.location.pathname);
+        }
+      }, 500);
+      
+      setTimeout(() => clearInterval(checkAuth), 10000);
+    }
+  }, [auth.isLoggedIn, friends]);
+
   const toggleTheme = () => {
     const nextTheme = theme === 'dark' ? 'light' : 'dark';
     setTheme(nextTheme);
@@ -1378,9 +1752,13 @@ export const AppProvider = ({ children }) => {
       isCallSimulated,
       initiateCall,
       acceptCall,
+      rejectCall,
       endCall,
       toggleMute,
       toggleVideoMute,
+      switchCamera,
+      switchCallMode,
+      callDuration,
       screenStream,
       isScreenSharing,
       startScreenShare,
@@ -1389,7 +1767,19 @@ export const AppProvider = ({ children }) => {
       // Chat messaging
       sendChatMessage,
       sendTypingStatus,
-      sendMessageReaction
+      sendMessageReaction,
+
+      // Notification system
+      notifications,
+      unreadNotificationCount,
+      notificationPrefs,
+      notificationCenterOpen,
+      setNotificationCenterOpen,
+      fetchNotifications,
+      markNotificationRead,
+      markAllNotificationsRead,
+      updateNotificationPrefs,
+      handleNotificationNavigation
     }}>
       {children}
     </AppContext.Provider>

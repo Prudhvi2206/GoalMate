@@ -11,6 +11,7 @@ import {
   User,
   Heart
 } from 'lucide-react';
+import NotificationSettings from './NotificationSettings';
 
 const UserProfileModal = () => {
   const { user, viewingUser, setViewingUser, updateProfile, addToast } = useApp();
@@ -212,6 +213,7 @@ const UserProfileModal = () => {
 
         {/* Profile Customization Form - Self Only */}
         {isSelf ? (
+          <>
           <form onSubmit={handleSaveProfile} className="profile-modal-form">
             <h4 className="profile-form-title">Customize Profile Attributes</h4>
             
@@ -274,6 +276,12 @@ const UserProfileModal = () => {
               {isSaving ? 'Saving Changes...' : 'Save Profile Changes'}
             </button>
           </form>
+
+          {/* Notification Settings Section */}
+          <div style={{ marginTop: '16px', borderTop: '1px solid var(--glass-border)', paddingTop: '16px' }}>
+            <NotificationSettings />
+          </div>
+          </>
         ) : (
           <div className="friend-action-info-box">
             <Heart size={16} className="friend-heart-icon" />
@@ -363,6 +371,8 @@ const UserProfileModal = () => {
           border-radius: var(--card-radius);
           width: 100%;
           max-width: 440px;
+          max-height: calc(100vh - 40px);
+          overflow-y: auto;
           padding: 24px;
           box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
           position: relative;
