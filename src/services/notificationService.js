@@ -1,6 +1,8 @@
 // GoalMate Notification Service
 // Manages Service Worker registration and native push notification delivery
 
+import { API_BASE_URL } from './api';
+
 let swRegistration = null;
 
 /**
@@ -144,7 +146,7 @@ export async function subscribeToPushNotifications(token) {
 
   try {
     // 1. Fetch public VAPID key
-    const res = await fetch('/api/calls/vapid-public-key', {
+    const res = await fetch(`${API_BASE_URL}/calls/vapid-public-key`, {
       headers: { 'Authorization': `Bearer ${token}` }
     });
     const { publicKey } = await res.json();
@@ -162,7 +164,7 @@ export async function subscribeToPushNotifications(token) {
     });
 
     // 3. Send subscription to server
-    await fetch('/api/calls/subscribe', {
+    await fetch(`${API_BASE_URL}/calls/subscribe`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

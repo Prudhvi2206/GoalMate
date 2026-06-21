@@ -47,9 +47,32 @@ const JWT_SECRET = process.env.JWT_SECRET || 'goalmate-super-secret-key-12345!';
 const PORT = process.env.PORT || 5000;
 const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5173';
 
-// Enable CORS
+// Enable CORS - dynamically allow request origins in development to support mobile device testing
+const allowedOrigins = [
+  CLIENT_URL,
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  'http://localhost:5000',
+  'http://127.0.0.1:5000'
+];
+
+const corsOrigin = (origin, callback) => {
+  if (!origin) return callback(null, true);
+  
+  const isMatch = allowedOrigins.includes(origin) || 
+                  origin.startsWith('http://192.168.') || 
+                  origin.startsWith('http://10.') || 
+                  origin.startsWith('http://172.');
+                  
+  if (isMatch || process.env.NODE_ENV !== 'production') {
+    callback(null, true);
+  } else {
+    callback(new Error('Not allowed by CORS'));
+  }
+};
+
 app.use(cors({
-  origin: CLIENT_URL,
+  origin: corsOrigin,
   credentials: true
 }));
 
@@ -81,7 +104,7 @@ app.get('*', (req, res) => {
 // Configure Socket.io Server
 const io = new Server(server, {
   cors: {
-    origin: CLIENT_URL,
+    origin: corsOrigin,
     methods: ['GET', 'POST'],
     credentials: true
   }
@@ -512,10 +535,10 @@ io.on('connection', async (socket) => {
 async function startServer() {
   await db.initialize();
   
-  server.listen(PORT, () => {
+  server.listen(PORT, '0.0.0.0', () => {
     console.log(`=========================================`);
     console.log(`   GOALMATE REAL-TIME EXPRESS BACKEND    `);
-    console.log(`   Running on: http://localhost:${PORT}   `);
+    console.log(`   Running on: http://0.0.0.0:${PORT}     `);
     console.log(`=========================================`);
   });
 }

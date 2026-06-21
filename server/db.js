@@ -220,9 +220,63 @@ class DatabaseManager {
         console.log('[DB] Database is empty. Seeding initial records...');
         await this.seed();
       }
+
+      // Ensure the demo user exists
+      await this.ensureDemoUser();
     } catch (err) {
       console.error('[DB FATAL] MongoDB initialization failed:', err);
       throw err;
+    }
+  }
+
+  async ensureDemoUser() {
+    try {
+      const demoEmail = 'user@goalmate.com';
+      const existingDemo = await this.getUserByEmail(demoEmail);
+      if (!existingDemo) {
+        console.log('[DB] Demo user user@goalmate.com not found. Seeding demo user...');
+        const hashed = await bcrypt.hash('password', 10);
+        const demoUser = new User({
+          id: 'prudhvi-uuid-9999',
+          username: 'prudhvi_achiever',
+          email: demoEmail,
+          password: hashed,
+          code: 'GM-78392',
+          avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Prudhvi',
+          xp: 420,
+          level: 2,
+          online: false,
+          lastSeen: new Date().toISOString(),
+          createdAt: new Date().toISOString()
+        });
+        await demoUser.save();
+        console.log('[DB] Demo user created successfully.');
+
+        // Seed friendships with Sarah, Alex, Marcus if they don't already exist
+        const partners = ['sarah-uuid-1111', 'alex-uuid-2222', 'marcus-uuid-3333'];
+        for (const partnerId of partners) {
+          const existingFriendship = await Friendship.findOne({
+            $or: [
+              { user1Id: 'prudhvi-uuid-9999', user2Id: partnerId },
+              { user1Id: partnerId, user2Id: 'prudhvi-uuid-9999' }
+            ]
+          });
+          if (!existingFriendship) {
+            const newFriendship = new Friendship({
+              id: uuidv4(),
+              user1Id: 'prudhvi-uuid-9999',
+              user2Id: partnerId,
+              status: 'accepted',
+              senderId: partnerId,
+              createdAt: new Date().toISOString()
+            });
+            await newFriendship.save();
+            console.log(`[DB] Created friendship between demo user and partner ${partnerId}`);
+          }
+        }
+      }
+    } catch (err) {
+      console.error('[DB] Failed to ensure demo user:', err);
     }
   }
 
