@@ -55,13 +55,16 @@ export async function requestNotificationPermission() {
  * Falls back to `new Notification()` if SW is not available.
  */
 export function showNativeNotification({ title, body, type, data, tag }) {
+  const displayTitle = 'GoalMate';
+  const displayBody = body ? `${title}\n${body}` : title;
+
   // Check if we should use Service Worker
   if (swRegistration && swRegistration.active) {
     swRegistration.active.postMessage({
       type: 'SHOW_NOTIFICATION',
       payload: {
-        title,
-        body,
+        title: displayTitle,
+        body: displayBody,
         tag: tag || `goalmate-${type}-${Date.now()}`,
         data: {
           type,
@@ -76,8 +79,8 @@ export function showNativeNotification({ title, body, type, data, tag }) {
   // Fallback: Direct Notification API (only works when tab is focused)
   if ('Notification' in window && Notification.permission === 'granted') {
     try {
-      new Notification(title, {
-        body: body || 'GoalMate Alert',
+      new Notification(displayTitle, {
+        body: displayBody,
         icon: '/favicon.svg',
         tag: tag || `goalmate-${type}-${Date.now()}`
       });
