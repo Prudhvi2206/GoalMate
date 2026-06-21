@@ -311,6 +311,42 @@ export const AppProvider = ({ children }) => {
     }, 1000);
   };
 
+  const getUserMediaStream = async (type, facingMode = 'user') => {
+    const audioConstraint = true;
+    if (type !== 'video') {
+      return await navigator.mediaDevices.getUserMedia({ audio: audioConstraint, video: false });
+    }
+
+    try {
+      // 1. Try with facingMode ideal constraint
+      return await navigator.mediaDevices.getUserMedia({
+        audio: audioConstraint,
+        video: { facingMode: { ideal: facingMode } }
+      });
+    } catch (err) {
+      console.warn('getUserMedia with facingMode constraint failed, trying simple video: true fallback...', err);
+      try {
+        // 2. Try with simple video: true
+        return await navigator.mediaDevices.getUserMedia({
+          audio: audioConstraint,
+          video: true
+        });
+      } catch (err2) {
+        console.warn('getUserMedia with video: true failed, trying audio only...', err2);
+        try {
+          // 3. Try audio-only before failing
+          return await navigator.mediaDevices.getUserMedia({
+            audio: audioConstraint,
+            video: false
+          });
+        } catch (err3) {
+          console.error('All media device capture attempts failed:', err3);
+          throw err3;
+        }
+      }
+    }
+  };
+
   const initiateCall = async (partnerId, type) => {
     const partner = friendsRef.current.find(f => f.id === partnerId);
     if (!partner) {
@@ -326,12 +362,16 @@ export const AppProvider = ({ children }) => {
     pendingCandidatesRef.current = [];
 
     try {
-      const constraints = { 
-        audio: true, 
-        video: type === 'video' ? { facingMode: cameraFacingModeRef.current } : false 
-      };
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      const stream = await getUserMediaStream(type, cameraFacingModeRef.current);
       setLocalStream(stream);
+
+      // Fallback if no camera track is present
+      let finalType = type;
+      if (type === 'video' && stream.getVideoTracks().length === 0) {
+        finalType = 'voice';
+        setCallType('voice');
+        addToast('No camera detected. Started audio call.', 'info');
+      }
 
       const pc = new RTCPeerConnection({
         iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
@@ -360,7 +400,7 @@ export const AppProvider = ({ children }) => {
       await pc.setLocalDescription(offer);
 
       if (socketRef.current) {
-        socketRef.current.emit('call_user', { to: partnerId, offer, type });
+        socketRef.current.emit('call_user', { to: partnerId, offer, type: finalType });
       }
     } catch (err) {
       console.warn('getUserMedia failed, falling back to simulated call overlay:', err);
@@ -396,12 +436,14 @@ export const AppProvider = ({ children }) => {
     }
 
     try {
-      const constraints = { 
-        audio: true, 
-        video: callType === 'video' ? { facingMode: cameraFacingModeRef.current } : false 
-      };
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      const stream = await getUserMediaStream(callType, cameraFacingModeRef.current);
       setLocalStream(stream);
+
+      // Fallback if no camera track is present
+      if (callType === 'video' && stream.getVideoTracks().length === 0) {
+        setCallType('voice');
+        addToast('No camera detected. Connected as audio call.', 'info');
+      }
 
       const pc = new RTCPeerConnection({
         iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
@@ -519,7 +561,7 @@ export const AppProvider = ({ children }) => {
       localStream.getVideoTracks().forEach(track => track.stop());
 
       const constraints = {
-        video: { facingMode: nextFacingMode }
+        video: { facingMode: { ideal: nextFacingMode } }
       };
       const newStream = await navigator.mediaDevices.getUserMedia(constraints);
       const newVideoTrack = newStream.getVideoTracks()[0];
@@ -576,7 +618,7 @@ export const AppProvider = ({ children }) => {
         }
         setIsVideoMuted(false);
       } else {
-        const constraints = { video: { facingMode: cameraFacingModeRef.current } };
+        const constraints = { video: { facingMode: { ideal: cameraFacingModeRef.current } } };
         const videoStream = await navigator.mediaDevices.getUserMedia(constraints);
         const newVideoTrack = videoStream.getVideoTracks()[0];
 
