@@ -729,7 +729,7 @@ export const AppProvider = ({ children }) => {
     }
 
     const socketUrl = import.meta.env.DEV
-      ? (import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000')
+      ? (import.meta.env.VITE_SOCKET_URL || `http://${window.location.hostname}:5000`)
       : window.location.origin;
     const socket = io(socketUrl, {
       auth: { token }
