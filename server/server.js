@@ -62,11 +62,14 @@ const corsOrigin = (origin, callback) => {
   const isMatch = allowedOrigins.includes(origin) || 
                   origin.startsWith('http://192.168.') || 
                   origin.startsWith('http://10.') || 
-                  origin.startsWith('http://172.');
+                  origin.startsWith('http://172.') ||
+                  origin.endsWith('.onrender.com') ||
+                  origin.includes('goalmate');
                   
   if (isMatch || process.env.NODE_ENV !== 'production') {
     callback(null, true);
   } else {
+    console.error(`[CORS Blocked] Origin: ${origin} is not allowed.`);
     callback(new Error('Not allowed by CORS'));
   }
 };
